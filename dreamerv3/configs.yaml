@@ -27,6 +27,7 @@ defaults:
     user: ''
 
   env:
+    cr-atari: {size: [96, 96], repeat: 4, sticky: True, gray: True, actions: all, lives: unused, noops: 30, autostart: False, pooling: 2, aggregate: max, resize: pillow, clip_reward: False, vision_square_size: [12,12]}
     atari: {size: [96, 96], repeat: 4, sticky: True, gray: True, actions: all, lives: unused, noops: 30, autostart: False, pooling: 2, aggregate: max, resize: pillow, clip_reward: False}
     procgen: {size: [96, 96], resize: pillow}
     crafter: {size: [64, 64], logs: False}
@@ -158,6 +159,10 @@ minecraft:
 dmlab:
   task: dmlab_explore_goal_locations_small
   run: {steps: 2.6e7, train_ratio: 32}
+
+cr-atari:
+  task: cr-atari_asterix
+  run: {steps: 5.1e7, train_ratio: 32}
 
 atari:
   task: atari_pong

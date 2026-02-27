@@ -120,6 +120,25 @@ def main(argv=None):
         bind(make_stream, config),
         args)
 
+  elif config.script == 'test':
+
+      import matplotlib.pyplot as plt
+      env = make_env(config, 0)
+      print(env.act_space)
+      print(env.obs_space)
+
+      action = {"action": np.int32(0), 
+                "reset": False, 
+                # "pause": np.int32(0), 
+                "gaze_position": np.int32(0)}
+      for i in range(16):
+        obs = env.step(action)
+        plt.imshow(obs["image"], cmap="gray")
+        plt.show()
+        
+        if action['gaze_position'] < env.act_space["gaze_position"].high-1:
+            action["gaze_position"] += np.int32(1)
+
   else:
     raise NotImplementedError(config.script)
 
@@ -220,6 +239,7 @@ def make_env(config, index, **overrides):
       'dm': 'embodied.envs.from_dmenv:FromDM',
       'crafter': 'embodied.envs.crafter:Crafter',
       'dmc': 'embodied.envs.dmc:DMC',
+      'cr-atari': 'embodied.envs.cr_atari:CrAtari',
       'atari': 'embodied.envs.atari:Atari',
       'atari100k': 'embodied.envs.atari:Atari',
       'dmlab': 'embodied.envs.dmlab:DMLab',
