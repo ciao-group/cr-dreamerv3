@@ -1,8 +1,11 @@
+from typing import Literal
 import elements
 import numpy as np
+from scipy.ndimage import gaussian_filter 
 
 from embodied.envs.atari import Atari
 
+Vision_Mode_Type = Literal["foveated", "periphery", "exponential-fovea"]
 
 class CrAtari(Atari):
     def __init__(
@@ -23,6 +26,7 @@ class CrAtari(Atari):
         clip_reward=False,
         seed=None,
         vision_square_size=(12, 12),
+        vision_mode: Vision_Mode_Type="foveated"
     ):
         super().__init__(
             name,
@@ -43,6 +47,7 @@ class CrAtari(Atari):
         )
 
         self.vision_square_size = vision_square_size
+        self.vision_mode: Vision_Mode_Type = vision_mode
 
         # Number of all possible horizontal and vertical vision squares
         self.vision_squares = (
@@ -73,19 +78,29 @@ class CrAtari(Atari):
 
         obs = super().step(atari_action)
 
-        obs["image"] = self._apply_vision_square(gaze_position, obs["image"])
+        obs["image"] = self._apply_vision_square(gaze_position, obs["image"], self.vision_mode)
 
         return obs
 
     def _reset(self):
         return super()._reset()
 
-    def _apply_vision_square(self, gaze_position: int, image):
+    def _apply_vision_square(self, gaze_position: int, image: np.ndarray, mode: Vision_Mode_Type):
 
         x = gaze_position % self.vision_squares[0]
         y = gaze_position // self.vision_squares[0]
-
-        new_image = np.zeros(image.shape)
+        
+        if mode == "foveated":
+        
+            new_image = np.zeros(image.shape)
+        
+        elif mode == "periphery":
+            
+            new_image = gaussian_filter(image, 2)
+        
+        elif mode == "exponential-fovea":
+            raise NotImplementedError
+        
         new_image[
             y * self.vision_square_size[1] : (y + 1) * self.vision_square_size[1],
             x * self.vision_square_size[0] : (x + 1) * self.vision_square_size[0],
