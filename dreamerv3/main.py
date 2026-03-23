@@ -53,6 +53,8 @@ def main(argv=None):
   )
 
   args = elements.Config(
+      {"task": config.task},
+      **config.env,
       **config.run,
       replica=config.replica,
       replicas=config.replicas,
