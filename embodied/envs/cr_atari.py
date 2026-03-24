@@ -1,11 +1,15 @@
 from typing import Literal
+
 import elements
 import numpy as np
-from scipy.ndimage import gaussian_filter 
+from scipy.ndimage import gaussian_filter
 
 from embodied.envs.atari import Atari
 
-Vision_Mode_Type = Literal["foveated", "periphery", "exponential-fovea"]
+Vision_Mode_Type = Literal[
+    "foveated", "periphery", "periphery-cutoff", "exponential-fovea"
+]
+
 
 class CrAtari(Atari):
     def __init__(
@@ -26,7 +30,7 @@ class CrAtari(Atari):
         clip_reward=False,
         seed=None,
         vision_square_size=(12, 12),
-        vision_mode: Vision_Mode_Type="foveated"
+        vision_mode: Vision_Mode_Type = "foveated",
     ):
         super().__init__(
             name,
@@ -78,35 +82,59 @@ class CrAtari(Atari):
 
         obs = super().step(atari_action)
 
-        obs["image"] = self._apply_vision_square(gaze_position, obs["image"], self.vision_mode)
+        obs["image"] = self._apply_vision_square(
+            gaze_position, obs["image"], self.vision_mode
+        )
 
         return obs
 
     def _reset(self):
         return super()._reset()
 
-    def _apply_vision_square(self, gaze_position: int, image: np.ndarray, mode: Vision_Mode_Type):
+    def _apply_vision_square(
+        self, gaze_position: int, image: np.ndarray, mode: Vision_Mode_Type
+    ):
+        x = gaze_position % self.vision_squares[0] * self.vision_square_size[0]
+        y = gaze_position // self.vision_squares[0] * self.vision_square_size[1]
 
-        x = gaze_position % self.vision_squares[0]
-        y = gaze_position // self.vision_squares[0]
-        
         if mode == "foveated":
-        
             new_image = np.zeros(image.shape)
-        
+
         elif mode == "periphery":
-            
             new_image = gaussian_filter(image, 2)
-        
+
+        elif mode == "periphery-cutoff":
+            new_image = np.zeros(image.shape)
+            blur_image = gaussian_filter(image, 2)
+
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    x_blur = x + dx * self.vision_square_size[0]
+                    y_blur = y + dy * self.vision_square_size[1]
+
+                    if (
+                        x_blur + self.vision_square_size[0] > self.size[0]
+                        or y_blur + self.vision_square_size[1] > self.size[1]
+                    ):
+                        continue
+
+                    new_image[
+                        y_blur : y_blur + self.vision_square_size[1],
+                        x_blur : x_blur + self.vision_square_size[0],
+                    ] = blur_image[
+                        y_blur : y_blur + self.vision_square_size[1],
+                        x_blur : x_blur + self.vision_square_size[0],
+                    ]
+
         elif mode == "exponential-fovea":
             raise NotImplementedError
-        
+
         new_image[
-            y * self.vision_square_size[1] : (y + 1) * self.vision_square_size[1],
-            x * self.vision_square_size[0] : (x + 1) * self.vision_square_size[0],
+            y : y + self.vision_square_size[1],
+            x : x + self.vision_square_size[0],
         ] = image[
-            y * self.vision_square_size[1] : (y + 1) * self.vision_square_size[1],
-            x * self.vision_square_size[0] : (x + 1) * self.vision_square_size[0],
+            y : y + self.vision_square_size[1],
+            x : x + self.vision_square_size[0],
         ]
 
         return new_image
