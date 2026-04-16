@@ -122,6 +122,12 @@ def main(argv=None):
         bind(make_stream, config),
         args)
 
+  elif config.script == 'eval_gaze':
+      embodied.run.eval_gaze(
+          bind(make_agent, config),
+          bind(make_logger, config),
+          args)
+
   elif config.script == 'test':
 
       import matplotlib.pyplot as plt
@@ -129,15 +135,15 @@ def main(argv=None):
       print(env.act_space)
       print(env.obs_space)
 
-      action = {"action": np.int32(0), 
-                "reset": False, 
-                # "pause": np.int32(0), 
+      action = {"action": np.int32(0),
+                "reset": False,
+                # "pause": np.int32(0),
                 "gaze_position": np.int32(0)}
       for i in range(16):
         obs = env.step(action)
         plt.imshow(obs["image"], cmap="gray")
         plt.show()
-        
+
         if action['gaze_position'] < env.act_space["gaze_position"].high-1:
             action["gaze_position"] += np.int32(1)
 

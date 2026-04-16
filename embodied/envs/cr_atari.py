@@ -1,14 +1,9 @@
-from typing import Literal
-
 import elements
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+import embodied.core.vision as vision
 from embodied.envs.atari import Atari
-
-Vision_Mode_Type = Literal[
-    "foveated", "periphery", "periphery-cutoff", "exponential-fovea"
-]
 
 
 class CrAtari(Atari):
@@ -30,7 +25,7 @@ class CrAtari(Atari):
         clip_reward=False,
         seed=None,
         vision_square_size=(12, 12),
-        vision_mode: Vision_Mode_Type = "foveated",
+        vision_mode: vision.Vision_Mode_Type = "foveated",
     ):
         super().__init__(
             name,
@@ -51,12 +46,11 @@ class CrAtari(Atari):
         )
 
         self.vision_square_size = vision_square_size
-        self.vision_mode: Vision_Mode_Type = vision_mode
+        self.vision_mode: vision.Vision_Mode_Type = vision_mode
 
         # Number of all possible horizontal and vertical vision squares
-        self.vision_squares = (
-            self.size[0] // self.vision_square_size[0],
-            self.size[1] // self.vision_square_size[1],
+        self.vision_square_count = vision.calc_vision_square_count(
+            self.size, self.vision_square_size
         )
 
     @property
@@ -67,7 +61,10 @@ class CrAtari(Atari):
             "reset": elements.Space(bool),
             # "pause": elements.Space(np.int32, (), 0, 2),  # 1 to pause
             "gaze_position": elements.Space(
-                np.int32, (), 0, self.vision_squares[0] * self.vision_squares[1]
+                np.int32,
+                (),
+                0,
+                self.vision_square_count[0] * self.vision_square_count[1],
             ),
         }
 
@@ -82,59 +79,16 @@ class CrAtari(Atari):
 
         obs = super().step(atari_action)
 
-        obs["image"] = self._apply_vision_square(
-            gaze_position, obs["image"], self.vision_mode
+        obs["image"] = vision.apply_vision_square(
+            gaze_position=gaze_position,
+            image=obs["image"],
+            mode=self.vision_mode,
+            vision_square_count=self.vision_square_count,
+            vision_square_size=self.vision_square_size,
+            size=self.size,
         )
 
         return obs
 
     def _reset(self):
         return super()._reset()
-
-    def _apply_vision_square(
-        self, gaze_position: int, image: np.ndarray, mode: Vision_Mode_Type
-    ):
-        x = gaze_position % self.vision_squares[0] * self.vision_square_size[0]
-        y = gaze_position // self.vision_squares[0] * self.vision_square_size[1]
-
-        if mode == "foveated":
-            new_image = np.zeros(image.shape)
-
-        elif mode == "periphery":
-            new_image = gaussian_filter(image, 2)
-
-        elif mode == "periphery-cutoff":
-            new_image = np.zeros(image.shape)
-            blur_image = gaussian_filter(image, 2)
-
-            for dx in range(-1, 2):
-                for dy in range(-1, 2):
-                    x_blur = x + dx * self.vision_square_size[0]
-                    y_blur = y + dy * self.vision_square_size[1]
-
-                    if (
-                        x_blur + self.vision_square_size[0] > self.size[0]
-                        or y_blur + self.vision_square_size[1] > self.size[1]
-                    ):
-                        continue
-
-                    new_image[
-                        y_blur : y_blur + self.vision_square_size[1],
-                        x_blur : x_blur + self.vision_square_size[0],
-                    ] = blur_image[
-                        y_blur : y_blur + self.vision_square_size[1],
-                        x_blur : x_blur + self.vision_square_size[0],
-                    ]
-
-        elif mode == "exponential-fovea":
-            raise NotImplementedError
-
-        new_image[
-            y : y + self.vision_square_size[1],
-            x : x + self.vision_square_size[0],
-        ] = image[
-            y : y + self.vision_square_size[1],
-            x : x + self.vision_square_size[0],
-        ]
-
-        return new_image
