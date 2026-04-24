@@ -36,7 +36,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
     aggregate = args["cr-atari.aggregate"]
     pooling = args["cr-atari.pooling"]
     dataset = _load_dataset(
-        "/home/anton/Coding/atari-cr/atari-cr/data/Atari-HEAD/asterix" # TODO: Change to dynamic loading
+        "data/Atari-HEAD/asterix"
     )
 
     for entry in dataset:
