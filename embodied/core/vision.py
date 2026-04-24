@@ -2,6 +2,7 @@ from typing import Literal
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
+import cv2
 
 Vision_Mode_Type = Literal[
     "foveated", "periphery", "periphery-cutoff", "exponential-fovea"
@@ -122,3 +123,35 @@ def convert_2d_gaze_position_to_1d_vision_square_position(
         + (gaze_position[1] // vision_square_size[1] * vision_square_count[0])
     )
     return vision_square_position
+
+def add_scanpath_to_image(
+    x1: int | None,
+    y1: int | None,
+    x2: int,
+    y2: int,
+    number: int,
+    gaze_scanpath_image: np.ndarray,
+    scale_gaze_scanpath_image: int,
+
+):
+    x2_scaled = int(x2 * scale_gaze_scanpath_image)
+    y2_scaled = int(y2 * scale_gaze_scanpath_image)
+
+    if x1 is not None and y1 is not None:
+        x1_scaled = int(x1 * scale_gaze_scanpath_image)
+        y1_scaled = int(y1 * scale_gaze_scanpath_image)
+        cv2.line(gaze_scanpath_image, (x1_scaled, y1_scaled), (x2_scaled, y2_scaled), (255,), 1)
+
+    cv2.putText(
+        gaze_scanpath_image,
+        str(number),
+        (x2_scaled + 3, y2_scaled + 3),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.4,
+        (125,),
+        1,
+        cv2.LINE_AA
+    )
+
+def normalize_heatmap_image_0_to_255(gaze_heatmap_image: np.ndarray) -> np.ndarray:
+    return ((gaze_heatmap_image - gaze_heatmap_image.min()) * (1/(gaze_heatmap_image.max() - gaze_heatmap_image.min()) * 255)).astype('uint8')

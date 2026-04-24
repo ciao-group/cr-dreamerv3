@@ -24,6 +24,7 @@ def eval_only(make_agent, make_env, make_logger, args):
   episodes = defaultdict(elements.Agg)
   should_log = elements.when.Clock(args.log_every)
   policy_fps = elements.FPS()
+  SCALE_GAZE_SCANPATH_IMAGE = 100
 
   @elements.timer.section('logfn')
   def logfn(tran, worker):
@@ -58,12 +59,11 @@ def eval_only(make_agent, make_env, make_logger, args):
         vision_square_size = args["cr-atari.vision_square_size"]
         size = args["cr-atari.size"]
         gaze_heatmap_image = np.zeros(size + (1,), dtype=np.int32)
-        scale_gaze_scanpath_image = 100
-        gaze_scanpath_image = np.zeros((size[0]*scale_gaze_scanpath_image, size[1]*scale_gaze_scanpath_image, 1), dtype=np.uint8)
+        gaze_scanpath_image = np.zeros((size[0]*SCALE_GAZE_SCANPATH_IMAGE, size[1]*SCALE_GAZE_SCANPATH_IMAGE, 1), dtype=np.uint8)
         gaze_positions = result.pop("gaze_positions")
         vision_square_count = vision.calc_vision_square_count(size=size, vision_square_size=vision_square_size)
-        last_x_scaled = None
-        last_y_scaled = None
+        last_x = None
+        last_y = None
         for i, gaze_position in enumerate(gaze_positions):
 
           x, y = vision.convert_1d_vision_square_position_to_2d_random(
@@ -73,30 +73,21 @@ def eval_only(make_agent, make_env, make_logger, args):
           )
           gaze_heatmap_image[y,x] += 1
 
-          x_scaled = x * scale_gaze_scanpath_image
-          y_scaled = y * scale_gaze_scanpath_image
-
-          if last_x_scaled is not None and last_y_scaled is not None:
-              cv2.line(gaze_scanpath_image, (last_x_scaled, last_y_scaled), (x_scaled, y_scaled), (255), 1)
-
-          cv2.putText(
-              gaze_scanpath_image,
-              str(i+1),
-              (x_scaled + 3, y_scaled + 3),
-              cv2.FONT_HERSHEY_SIMPLEX,
-              0.4,
-              (125),
-              1,
-              cv2.LINE_AA
+          vision.add_scanpath_to_image(
+              x1 = last_x,
+              y1 = last_y,
+              x2= x,
+              y2= y,
+              number = i+1,
+              gaze_scanpath_image=gaze_scanpath_image,
+              scale_gaze_scanpath_image=SCALE_GAZE_SCANPATH_IMAGE
           )
-          last_x_scaled = x_scaled
-          last_y_scaled = y_scaled
+          last_x = x
+          last_y = y
 
-        # Normalize image from 0 to 1 -> scale from 0 to 255
-        gaze_heatmap_image = ((gaze_heatmap_image - gaze_heatmap_image.min()) * (1/(gaze_heatmap_image.max() - gaze_heatmap_image.min()) * 255)).astype('uint8')
-        logger.image("gaze_heatmap", gaze_heatmap_image)
+        logger.image("gaze_heatmap", vision.normalize_heatmap_image_0_to_255(gaze_heatmap_image=gaze_heatmap_image))
         logger.image("gaze_scanpath", gaze_scanpath_image)
-        logger.add({'gaze_positions': str(gaze_positions)})
+        logger.add({'gaze_positions': np.array2string(gaze_positions,threshold=len(gaze_positions), separator=", ").replace('\n', '')})
 
       epstats.add(result)
 

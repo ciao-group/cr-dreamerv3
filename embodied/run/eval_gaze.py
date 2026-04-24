@@ -14,7 +14,7 @@ from embodied.envs.cr_atari import CrAtari
 
 WEIGHTS = CrAtari.WEIGHTS
 DATASET_SCREEN_SIZE = (160, 210)
-
+SCALE_GAZE_SCANPATH_IMAGE = 100
 
 def eval_gaze(make_agent, make_logger, args, **kwargs):
 
@@ -57,6 +57,10 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
 
         trial_data = entry["trial_data"]
         gaze_positions = np.empty((0, 2), int)
+        gaze_heatmap_image = np.zeros(size + (1,), dtype=np.int32)
+        gaze_scanpath_image = np.zeros((size[0]*SCALE_GAZE_SCANPATH_IMAGE, size[1]*SCALE_GAZE_SCANPATH_IMAGE, 1), dtype=np.uint8)
+        last_x = None
+        last_y = None
 
         for i in range(len(trial_data)):
             human_gaze_position = (
@@ -114,6 +118,19 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             )
             np.append(gaze_positions, [[x, y]])
 
+            gaze_heatmap_image[y,x] += 1
+            vision.add_scanpath_to_image(
+                          x1 = last_x,
+                          y1 = last_y,
+                          x2= x,
+                          y2= y,
+                          number = i+1,
+                          gaze_scanpath_image=gaze_scanpath_image,
+                          scale_gaze_scanpath_image=SCALE_GAZE_SCANPATH_IMAGE
+                      )
+            last_x = x
+            last_y = y
+
             distance_to_vision_square_center = (
                 _calc_gaze_distance_to_vision_square_center(
                     vision_square_position=vision_square_position,
@@ -152,17 +169,16 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             if should_log(i):
                 logger.write()
 
-            print(
-                distance_to_vision_square_center,
-                distance_to_vision_square_bound,
-            )
+        logger.image("gaze_heatmap", vision.normalize_heatmap_image_0_to_255(gaze_heatmap_image=gaze_heatmap_image))
+        logger.image("gaze_scanpath", gaze_scanpath_image)
+        logger.add({'gaze_positions': np.array2string(gaze_positions,threshold=len(gaze_positions), separator=", ").replace('\n', '')})
 
     logger.close()
 
 
 def _load_dataset(path: str):
 
-    dataset: list[dict[Literal["trial_data", "trial_frames"], npt.NDArray[np.uint8] | DataFrame]] = []
+    dataset: list[dict[Literal["trial_data", "trial_frames"], np.ndarray | DataFrame]] = []
 
     csv_file_names = list(
         filter(
