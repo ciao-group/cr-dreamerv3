@@ -59,6 +59,8 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
         gaze_positions = np.empty((0, 2), int)
         gaze_heatmap_image = np.zeros(size + (1,), dtype=np.int32)
         gaze_scanpath_image = np.zeros((size[0]*SCALE_GAZE_SCANPATH_IMAGE, size[1]*SCALE_GAZE_SCANPATH_IMAGE, 1), dtype=np.uint8)
+        distances_to_vision_square_center = np.empty((0,), dtype=np.int32)
+        distances_to_vision_square_bound = np.empty((0,), dtype=np.int32)
         last_x = None
         last_y = None
 
@@ -116,7 +118,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 vision_square_count=vision_square_count,
                 vision_square_size=vision_square_size,
             )
-            np.append(gaze_positions, [[x, y]])
+            gaze_positions = np.append(gaze_positions, [[x, y]])
 
             gaze_heatmap_image[y,x] += 1
             vision.add_scanpath_to_image(
@@ -149,15 +151,13 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 )
             )
 
+            distances_to_vision_square_center = np.append(distances_to_vision_square_center, distance_to_vision_square_center)
+            distances_to_vision_square_bound = np.append(distances_to_vision_square_bound, distance_to_vision_square_bound)
             logger.add(
                 {
                     "distance_to_vision_square_center": float(
                         distance_to_vision_square_center
-                    )
-                }
-            )
-            logger.add(
-                {
+                    ),
                     "distance_to_vision_square_bound": float(
                         distance_to_vision_square_bound
                     )
@@ -171,7 +171,17 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
 
         logger.image("gaze_heatmap", vision.normalize_heatmap_image_0_to_255(gaze_heatmap_image=gaze_heatmap_image))
         logger.image("gaze_scanpath", gaze_scanpath_image)
-        logger.add({'gaze_positions': np.array2string(gaze_positions,threshold=len(gaze_positions), separator=", ").replace('\n', '')})
+        logger.add(
+            {
+                'gaze_positions': np.array2string(gaze_positions,threshold=len(gaze_positions), separator=", ").replace('\n', ''),
+                "distances_to_vision_square_center": float(
+                    np.mean(distances_to_vision_square_center)
+                ),
+                "distances_to_vision_square_bound": float(
+                    np.mean(distances_to_vision_square_bound)
+                )
+            }
+        )
 
     logger.close()
 
