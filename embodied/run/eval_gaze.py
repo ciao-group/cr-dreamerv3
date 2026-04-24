@@ -196,7 +196,6 @@ def _load_dataset(path: str):
             os.listdir(path),
         )
     )
-    csv_file_names = csv_file_names[0:1]
 
     for csv_file_name in csv_file_names:
         csv_path = os.path.join(path, csv_file_name)
