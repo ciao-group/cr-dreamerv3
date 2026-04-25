@@ -85,9 +85,6 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             img_batch[1:] = img_batch[:-1]
             img_batch[0] = img
 
-            # cv2.imshow("TEST", img)
-            # cv2.waitKey(0)
-
             img = _preprocess_image_batch(
                 img_batch=img_batch, size=size, gray=gray, aggregate=aggregate
             )
@@ -107,8 +104,6 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 size=size,
             )
 
-            cv2.imshow("TEST2", img)
-            cv2.waitKey(0)
             obs["image"] = np.expand_dims(img, 0)
             ca, acts, out = policy(carry, obs, **kwargs)
             vision_square_position = acts["gaze_position"]
