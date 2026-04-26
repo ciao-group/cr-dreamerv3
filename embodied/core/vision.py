@@ -21,13 +21,13 @@ def apply_vision_square(
     y = gaze_position // vision_square_count[0] * vision_square_size[1]
 
     if mode == "foveated":
-        new_image = np.zeros(image.shape)
+        new_image = np.zeros(image.shape, dtype=np.uint8)
 
     elif mode == "periphery":
         new_image = gaussian_filter(image, 2)
 
     elif mode == "periphery-cutoff":
-        new_image = np.zeros(image.shape)
+        new_image = np.zeros(image.shape, dtype=np.uint8)
         blur_image = gaussian_filter(image, 2)
 
         for dx in range(-1, 2):
