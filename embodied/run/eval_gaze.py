@@ -64,17 +64,29 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
         last_x = None
         last_y = None
 
-        for i in range(len(trial_data)):
+        for i in range(len(trial_data)-1):
             human_gaze_position = (
                 trial_data[i]["gazes"]
                 .str.json_decode(pl.List(pl.List(pl.Float64)))
                 .list.first()
             )[0]
-            if human_gaze_position is None:
+
+            next_human_gaze_position = (
+                trial_data[i+1]["gazes"]
+                .str.json_decode(pl.List(pl.List(pl.Float64)))
+                .list.first()
+            )[0]
+
+            if human_gaze_position is None or next_human_gaze_position is None:
                 continue
             human_gaze_position = (
-                human_gaze_position[0] / DATASET_SCREEN_SIZE[0] * size[0],
-                human_gaze_position[1] / DATASET_SCREEN_SIZE[1] * size[1],
+                int(np.round(human_gaze_position[0] / DATASET_SCREEN_SIZE[0] * size[0])),
+                int(np.round(human_gaze_position[1] / DATASET_SCREEN_SIZE[1] * size[1])),
+            )
+
+            next_human_gaze_position = (
+                int(np.round(next_human_gaze_position[0] / DATASET_SCREEN_SIZE[0] * size[0])),
+                int(np.round(next_human_gaze_position[1] / DATASET_SCREEN_SIZE[1] * size[1])),
             )
 
             img = entry["trial_frames"][i]
@@ -132,7 +144,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 _calc_gaze_distance_to_vision_square_center(
                     vision_square_position=vision_square_position,
                     vision_square_size=vision_square_size,
-                    gaze_position=human_gaze_position,
+                    gaze_position=next_human_gaze_position,
                     vision_square_count=vision_square_count,
                 )
             )
@@ -141,11 +153,17 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 _calc_gaze_distance_to_vision_square_bounds(
                     vision_square_position=vision_square_position,
                     vision_square_size=vision_square_size,
-                    gaze_position=human_gaze_position,
+                    gaze_position=next_human_gaze_position,
                     vision_square_count=vision_square_count,
                 )
             )
-
+            # print("Distances: ", distance_to_vision_square_center, distance_to_vision_square_bound)
+            # print("Model Prediciton: ", x,y)
+            # print("Next Human: ", next_human_gaze_position)
+            # cv2.circle(img, (int(x),int(y)), 8, (255,),1)
+            # cv2.circle(img, next_human_gaze_position, 4, (255,),1)
+            # cv2.imshow("TEST", img)
+            # cv2.waitKey(0)
             distances_to_vision_square_center = np.append(distances_to_vision_square_center, distance_to_vision_square_center)
             distances_to_vision_square_bound = np.append(distances_to_vision_square_bound, distance_to_vision_square_bound)
             logger.add(
@@ -169,10 +187,10 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
         logger.add(
             {
                 'gaze_positions': np.array2string(gaze_positions,threshold=len(gaze_positions), separator=", ").replace('\n', ''),
-                "distances_to_vision_square_center": float(
+                "avg_distance_to_vision_square_center": float(
                     np.mean(distances_to_vision_square_center)
                 ),
-                "distances_to_vision_square_bound": float(
+                "avg_distance_to_vision_square_bound": float(
                     np.mean(distances_to_vision_square_bound)
                 )
             }
@@ -191,7 +209,7 @@ def _load_dataset(path: str):
             os.listdir(path),
         )
     )
-
+    # csv_file_names = csv_file_names[0:1]
     for csv_file_name in csv_file_names:
         csv_path = os.path.join(path, csv_file_name)
         subdir_name = os.path.splitext(csv_file_name)[0]
