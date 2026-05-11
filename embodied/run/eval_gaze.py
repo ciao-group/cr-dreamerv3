@@ -117,7 +117,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             )
 
             obs["image"] = np.expand_dims(img, 0)
-            ca, acts, out = policy(carry, obs, **kwargs)
+            carry, acts, out = policy(carry, obs, **kwargs)
             vision_square_position = acts["gaze_position"]
 
             x, y = vision.convert_1d_vision_square_position_to_2d_random(
@@ -162,7 +162,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             # print("Next Human: ", next_human_gaze_position)
             # cv2.circle(img, (int(x),int(y)), 8, (255,),1)
             # cv2.circle(img, next_human_gaze_position, 4, (255,),1)
-            # cv2.imshow("TEST", img)
+            # cv2.imshow("", img)
             # cv2.waitKey(0)
             distances_to_vision_square_center = np.append(distances_to_vision_square_center, distance_to_vision_square_center)
             distances_to_vision_square_bound = np.append(distances_to_vision_square_bound, distance_to_vision_square_bound)
@@ -222,6 +222,7 @@ def _load_dataset(path: str):
                     pl.col("frame_id"),
                     pl.col("gaze_positions").alias("gazes"),
                     pl.col("duration(ms)"),
+                    # pl.col("action"),
                     pl.col("unclipped_reward").cum_sum().alias("cum_unclipped_reward"),
                 ]
             )
@@ -235,6 +236,7 @@ def _load_dataset(path: str):
                 for id in trial_data["frame_id"]
             ]
         )
+        # trial_actions = ""
         assert len(trial_frames) == len(trial_data)
 
         dataset.append({"trial_data": trial_data, "trial_frames": trial_frames})
