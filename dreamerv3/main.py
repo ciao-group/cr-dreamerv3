@@ -139,6 +139,10 @@ def main(argv=None):
                 "reset": False,
                 # "pause": np.int32(0),
                 "gaze_position": np.int32(0)}
+
+      # To reset:
+      env.step(action)
+
       for i in range(16):
         obs = env.step(action)
         plt.imshow(obs["image"], cmap="gray")
