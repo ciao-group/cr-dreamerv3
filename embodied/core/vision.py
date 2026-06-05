@@ -155,3 +155,73 @@ def add_scanpath_to_image(
 
 def normalize_heatmap_image_0_to_255(gaze_heatmap_image: np.ndarray) -> np.ndarray:
     return ((gaze_heatmap_image - gaze_heatmap_image.min()) * (1/(gaze_heatmap_image.max() - gaze_heatmap_image.min()) * 255)).astype('uint8')
+
+def calc_EMMA_time(dist: float, freq = 0.1, execution_time = 0.07, K=0.006, k=0.4, saccade_scaling = 0.002, t_prep = 0.135):
+
+    t_enc = K * -np.log(freq) * np.exp(k * dist)
+
+     # if encoding time < movement preparation time then no movement
+    if t_enc < t_prep:
+        return (t_enc, 0, 0), t_enc, False
+
+    # movement execution time, originally intended to be gamma distributed
+    t_exec = execution_time + saccade_scaling * dist
+    # eye movement time (preparation time + execition time)
+    t_sacc = t_prep + t_exec
+
+    # if encoding time less then movement time
+    if t_enc <= t_sacc:
+        return (t_prep, t_exec, 0), t_sacc, True
+
+    # if encoding left after movement time
+    e_new = (k * -np.log(freq))
+    t_enc_new = (1 - (t_sacc / t_enc)) * e_new
+
+    return (t_prep, t_exec, t_enc_new), t_sacc + t_enc_new, True
+
+def calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
+    prev_position: int,
+    next_position: int,
+    vision_square_count: tuple[int, int],
+    vision_square_size: tuple[int, int],
+    visual_degrees_per_pixel: np.ndarray
+    ) -> float:
+
+    x_1, y_1 = convert_1d_vision_square_position_to_2d_center(
+        vision_square_position=prev_position,
+        vision_square_count=vision_square_count,
+        vision_square_size=vision_square_size
+    )
+    x_2, y_2 = convert_1d_vision_square_position_to_2d_center(
+            vision_square_position=next_position,
+            vision_square_count=vision_square_count,
+            vision_square_size=vision_square_size
+        )
+
+    pixel_distance = np.array([x_1-x_2, y_1-y_2])
+
+    eccentricity = np.sqrt(np.sum(np.square(
+                pixel_distance * visual_degrees_per_pixel )))
+
+    return eccentricity
+
+def calc_EMMA_time_from_1d_vision_square_positions(
+    prev_position: int | None,
+    next_position: int,
+    vision_square_count: tuple[int, int],
+    vision_square_size: tuple[int, int],
+    visual_degrees_per_pixel: np.ndarray
+):
+    if prev_position is None or prev_position == next_position:
+        return 0
+
+    distance = calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
+                prev_position=prev_position,
+                next_position=next_position,
+                vision_square_count=vision_square_count,
+                vision_square_size=vision_square_size,
+                visual_degrees_per_pixel=visual_degrees_per_pixel
+            )
+
+    _, total_time, _ = calc_EMMA_time(distance)
+    return total_time
