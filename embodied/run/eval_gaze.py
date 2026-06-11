@@ -27,6 +27,10 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
     policy = lambda *args: agent.policy(*args, mode="eval")
     size = args["cr-atari.size"]
     vision_square_size = args["cr-atari.vision_square_size"]
+    scaled_vision_square_size = (
+                vision_square_size[0] * DATASET_SCREEN_SIZE[0] // size[0],
+                vision_square_size[1] * DATASET_SCREEN_SIZE[1] // size[1]
+            )
     vision_square_count = (
         size[0] // vision_square_size[0],
         size[1] // vision_square_size[1],
@@ -93,14 +97,6 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             assert isinstance(img, np.ndarray)
             assert img.dtype == np.uint8
 
-            # Rotate batch to the right
-            img_batch[1:] = img_batch[:-1]
-            img_batch[0] = img
-
-            img = _preprocess_image_batch(
-                img_batch=img_batch, size=size, gray=gray, aggregate=aggregate
-            )
-
             human_gaze_position_1d = vision.convert_2d_gaze_position_to_1d_vision_square_position(
                 gaze_position=human_gaze_position,
                 vision_square_count=vision_square_count,
@@ -112,8 +108,16 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 image=img,
                 mode=vision_mode,
                 vision_square_count=vision_square_count,
-                vision_square_size=vision_square_size,
+                vision_square_size=scaled_vision_square_size,
                 size=size,
+            )
+
+            # Rotate batch to the right
+            img_batch[1:] = img_batch[:-1]
+            img_batch[0] = img
+
+            img = _preprocess_image_batch(
+                img_batch=img_batch, size=size, gray=gray, aggregate=aggregate
             )
 
             obs["image"] = np.expand_dims(img, 0)
