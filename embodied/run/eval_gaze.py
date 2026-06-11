@@ -23,6 +23,10 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
     agent = make_agent()
     logger = make_logger()
 
+    cp = elements.Checkpoint()
+    cp.agent = agent
+    cp.load(args.from_checkpoint, keys=['agent'])
+
     should_log = elements.when.Clock(args.log_every)
     policy = lambda *args: agent.policy(*args, mode="eval")
     size = args["cr-atari.size"]
@@ -164,9 +168,9 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             # print("Distances: ", distance_to_vision_square_center, distance_to_vision_square_bound)
             # print("Model Prediciton: ", x,y)
             # print("Next Human: ", next_human_gaze_position)
-            # cv2.circle(img, (int(x),int(y)), 8, (255,),1)
-            # cv2.circle(img, next_human_gaze_position, 4, (255,),1)
-            # cv2.imshow("", img)
+            # cv2.circle(obs["image"][0], (int(x),int(y)), 8, (255,),1)
+            # cv2.circle(obs["image"][0], next_human_gaze_position, 4, (255,),1)
+            # cv2.imshow("", obs["image"][0])
             # cv2.waitKey(0)
             distances_to_vision_square_center = np.append(distances_to_vision_square_center, distance_to_vision_square_center)
             distances_to_vision_square_bound = np.append(distances_to_vision_square_bound, distance_to_vision_square_bound)
@@ -181,6 +185,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 }
             )
 
+            obs["is_first"] = np.array([False], dtype=bool)
             logger.step += 1
 
             if should_log(i):
