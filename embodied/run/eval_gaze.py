@@ -46,6 +46,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
     dataset = _load_dataset(
         "data/Atari-HEAD/asterix"
     )
+    apply_vision_square_from = args["evaluation.apply_vision_square_from"]
 
     for entry in dataset:
         carry = agent.init_policy(1)
@@ -71,6 +72,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
         distances_to_vision_square_bound = np.empty((0,), dtype=np.int32)
         last_x = None
         last_y = None
+        last_vision_square_position = None
 
         for i in range(len(trial_data)-1):
             human_gaze_position = (
@@ -101,14 +103,38 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
             assert isinstance(img, np.ndarray)
             assert img.dtype == np.uint8
 
-            human_gaze_position_1d = vision.convert_2d_gaze_position_to_1d_vision_square_position(
-                gaze_position=human_gaze_position,
-                vision_square_count=vision_square_count,
-                vision_square_size=vision_square_size
-            )
+            if apply_vision_square_from == "human":
+                human_gaze_position_1d = vision.convert_2d_gaze_position_to_1d_vision_square_position(
+                    gaze_position=human_gaze_position,
+                    vision_square_count=vision_square_count,
+                    vision_square_size=vision_square_size
+                )
+
+                applying_gaze_position = human_gaze_position_1d
+
+            elif apply_vision_square_from == "model":
+
+                if last_vision_square_position is not None:
+                    applying_gaze_position = int(last_vision_square_position)
+
+                else:
+                    initial_gaze_position = vision.convert_2d_gaze_position_to_1d_vision_square_position(
+                    (
+                        vision_square_count[0] * vision_square_size[0] // 2,
+                        vision_square_count[1] * vision_square_size[1] // 2
+                    ),
+                    vision_square_count,
+                    vision_square_size)
+
+                    applying_gaze_position = initial_gaze_position
+
+            else:
+                raise ValueError(
+                    f"Unknown apply_vision_square_from: {apply_vision_square_from}"
+                )
 
             img = vision.apply_vision_square(
-                gaze_position=human_gaze_position_1d,
+                gaze_position=applying_gaze_position,
                 image=img,
                 mode=vision_mode,
                 vision_square_count=vision_square_count,
@@ -147,6 +173,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                       )
             last_x = x
             last_y = y
+            last_vision_square_position = vision_square_position
 
             distance_to_vision_square_center = (
                 _calc_gaze_distance_to_vision_square_center(

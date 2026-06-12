@@ -37,6 +37,9 @@ defaults:
     dmc: {size: [64, 64], repeat: 1, proprio: True, image: True, camera: -1}
     loconav: {size: [64, 64], repeat: 1, camera: -1}
 
+  evaluation:
+    apply_vision_square_from: human
+
   replay:
     size: 5e6
     online: True

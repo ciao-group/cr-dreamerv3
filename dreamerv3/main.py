@@ -53,7 +53,10 @@ def main(argv=None):
   )
 
   args = elements.Config(
-      {"task": config.task},
+      {
+          "task": config.task,
+          "evaluation": config.evaluation
+      },
       **config.env,
       **config.run,
       replica=config.replica,
