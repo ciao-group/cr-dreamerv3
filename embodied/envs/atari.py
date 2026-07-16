@@ -9,6 +9,7 @@ import embodied
 import numpy as np
 
 from PIL import Image
+from typing import Tuple
 
 
 class Atari(embodied.Env):
@@ -47,6 +48,7 @@ class Atari(embodied.Env):
     self.autostart = autostart
     self.clip_reward = clip_reward
     self.rng = np.random.default_rng(seed)
+    self.name = name
 
     with self.LOCK:
       self.ale = ale_py.ALEInterface()
@@ -80,6 +82,7 @@ class Atari(embodied.Env):
         'is_first': elements.Space(bool),
         'is_last': elements.Space(bool),
         'is_terminal': elements.Space(bool),
+        'player_position': elements.Space(np.uint16, shape=(2,)),
     }
 
   @property
@@ -88,6 +91,27 @@ class Atari(embodied.Env):
         'action': elements.Space(np.int32, (), 0, len(self.actionset)),
         'reset': elements.Space(bool),
     }
+
+  @property
+  def character_position(self) -> Tuple[int, int]:
+    ram = self.ale.getRAM()
+    ram_addresses = {
+      "asterix": {"x": 41, "y": 39},
+      "hero": {"x": 27, "y": 31},
+      "seaquest": {"x": 70, "y": 97}
+    }
+    if self.name not in ram_addresses:
+      raise ValueError(f"RAM addresses for game '{self.name}' are currently unknown.")
+
+    x_addr = ram_addresses[self.name]["x"]
+    y_addr = ram_addresses[self.name]["y"]
+
+    # Retrieve and return the values from the current RAM state
+    player_x = ram[x_addr]
+    player_y = ram[y_addr]
+
+    return player_x, player_y
+
 
   def step(self, action):
     if action['reset'] or self.done:
@@ -174,4 +198,6 @@ class Atari(embodied.Env):
         is_first=is_first,
         is_last=is_last,
         is_terminal=is_last,
+        player_position=self.character_position,
     )
+
