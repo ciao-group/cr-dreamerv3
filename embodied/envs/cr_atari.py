@@ -26,7 +26,8 @@ class CrAtari(Atari):
         seed=None,
         vision_square_size=(12, 12),
         vision_mode: vision.Vision_Mode_Type = "foveated",
-        vision_model: str | None = None
+        vision_model: str | None = None,
+        motor_action_delay: bool = False
     ):
         super().__init__(
             name,
@@ -64,6 +65,7 @@ class CrAtari(Atari):
         self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array(self.size)
         self.passed_time = 0
         self.prev_gaze_position = None
+        self.motor_action_delay = motor_action_delay
 
     @property
     def act_space(self):
@@ -108,38 +110,53 @@ class CrAtari(Atari):
             self.done = False
             return self._obs(0.0, is_first=True)
 
-        total_time = 0
+        all_delay_times = {"default": 0.0}
+        emma_frames = 0
         if self.vision_model == "EMMA":
-            total_time = vision.calc_EMMA_time_from_1d_vision_square_positions(
+            emma_time = vision.calc_EMMA_time_from_1d_vision_square_positions(
                 prev_position=self.prev_gaze_position,
                 next_position=gaze_position,
                 vision_square_count=self.vision_square_count,
                 vision_square_size=self.vision_square_size,
                 visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL
             )
+            emma_frames = emma_time // self.TIME_PER_FRAME
+            all_delay_times["EMMA"] = emma_time
+
+        motor_action_frames = 0
+        if self.motor_action_delay:
+            motor_action_time = np.round(np.random.normal(70, 12.8398, None) / 1000, 2)
+            motor_action_frames = motor_action_time // self.TIME_PER_FRAME
+            all_delay_times["motor_action"] = motor_action_time
 
         repeating = self.repeat
-        if total_time > self.repeat * self.TIME_PER_FRAME:
-            repeating = int(total_time // self.TIME_PER_FRAME)
+        max_delay_time = max(list(all_delay_times.values()))
+        if max_delay_time > self.repeat * self.TIME_PER_FRAME:
+            repeating = int(max_delay_time // self.TIME_PER_FRAME)
 
-        if total_time % self.TIME_PER_FRAME + self.passed_time % self.TIME_PER_FRAME >= self.TIME_PER_FRAME:
+        if max_delay_time % self.TIME_PER_FRAME + self.passed_time % self.TIME_PER_FRAME >= self.TIME_PER_FRAME:
             repeating += 1
 
-        self.passed_time += total_time % self.TIME_PER_FRAME
+        self.passed_time += max_delay_time % self.TIME_PER_FRAME
 
         reward = 0.0
         terminal = False
         last = False
         assert 0 <= action['action'] < len(self.actionset), action['action']
         act = self.actionset[action['action']]
+        no_act = self.ACTION_MEANING.index('NOOP')
         for repeat in range(repeating):
-            reward += self.ale.act(act)
+
+            if (motor_action_frames <= repeat < self.repeat + motor_action_frames):
+                reward += self.ale.act(act)
+            else:
+                reward += self.ale.act(no_act)
             self.duration += 1
             self.passed_time += self.TIME_PER_FRAME
             if repeat >= repeating - self.pooling:
                 self._render()
                 self.buffers[0] = vision.apply_vision_square(
-                    gaze_position=gaze_position if repeat == repeating-1 or self.prev_gaze_position is None else self.prev_gaze_position,
+                    gaze_position=gaze_position if repeat >= emma_frames or self.prev_gaze_position is None else self.prev_gaze_position,
                             image=self.buffers[0],
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,

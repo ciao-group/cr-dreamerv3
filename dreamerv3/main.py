@@ -138,10 +138,12 @@ def main(argv=None):
       print(env.act_space)
       print(env.obs_space)
 
-      action = {"action": np.int32(0),
-                "reset": False,
-                # "pause": np.int32(0),
-                "gaze_position": np.int32(0)}
+      action = {
+          "action": np.int32(2),
+          "reset": False,
+          "gaze_position": np.int32(0)
+          # "pause": np.int32(0),
+      }
 
       # To reset:
       env.step(action)
