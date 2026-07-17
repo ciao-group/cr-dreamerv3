@@ -68,6 +68,20 @@ class CrAtari(Atari):
         self.motor_action_delay = motor_action_delay
 
     @property
+    def obs_space(self):
+        return {
+            'image': elements.Space(np.uint8, (*self.size, 1 if self.gray else 3)),
+            'reward': elements.Space(np.float32),
+            'is_first': elements.Space(bool),
+            'is_last': elements.Space(bool),
+            'is_terminal': elements.Space(bool),
+            'log/player_position_x': elements.Space(np.uint8),
+            'log/player_position_y': elements.Space(np.uint8),
+            'log/player_bb_w': elements.Space(np.uint8),
+            'log/player_bb_h': elements.Space(np.uint8),
+        }
+
+    @property
     def act_space(self):
 
         return {
@@ -220,3 +234,13 @@ class CrAtari(Atari):
         for i, dst in enumerate(self.buffers):
             if i > 0:
                 np.copyto(dst, self.buffers[0])
+
+    def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
+        char_x, char_y, char_w, char_h = self._scale_bounding_box(self.character_position[0],
+                                                                  self.character_position[1])
+        obs = super()._obs(reward, is_last, is_terminal)
+        obs["log/player_position_x"] = char_x
+        obs["log/player_position_y"] = char_y
+        obs["log/player_bb_w"]= char_w
+        obs["log/player_bb_h"]= char_h
+        return obs

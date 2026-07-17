@@ -82,7 +82,6 @@ class Atari(embodied.Env):
         'is_first': elements.Space(bool),
         'is_last': elements.Space(bool),
         'is_terminal': elements.Space(bool),
-        'player_position': elements.Space(np.uint16, shape=(2,)),
     }
 
   @property
@@ -110,7 +109,49 @@ class Atari(embodied.Env):
     player_x = ram[x_addr]
     player_y = ram[y_addr]
 
+    # convert to pixels
+    # asterix only
+    if self.name.lower() == "asterix":
+      player_x_screen = player_x + 8
+      player_y_screen = 16 * player_y + 26
+      return player_x_screen, player_y_screen
+
     return player_x, player_y
+
+  def _scale_bounding_box(self, x, y, w=8, h=11, orig_w=160, orig_h=210) -> Tuple[int, int, int, int]:
+    """
+    Scales a bounding box from the original Atari screen resolution
+    to a new target resolution.
+
+    Args:
+        x (int): Original X coordinate.
+        y (int): Original Y coordinate.
+        w (int): Original width, asterix=8.
+        h (int): Original height, asterix=11.
+        orig_w (int): Original screen width (default: 160).
+        orig_h (int): Original screen height (default: 210).
+
+    Returns:
+        tuple: A tuple containing the scaled (x, y, width, height).
+    """
+
+    new_w, new_h = self.size
+
+    # Calculate the scale factors for both axes
+    scale_x = new_w / orig_w
+    scale_y = new_h / orig_h
+
+    # Apply scaling and round to nearest integer to get valid pixel indices
+    scaled_x = int(round(x * scale_x))
+    scaled_y = int(round(y * scale_y))
+    scaled_w = int(round(w * scale_x))
+    scaled_h = int(round(h * scale_y))
+
+    # Ensure width and height are at least 1 pixel wide/high
+    scaled_w = max(1, scaled_w)
+    scaled_h = max(1, scaled_h)
+
+    return scaled_x, scaled_y, scaled_w, scaled_h
 
 
   def step(self, action):
@@ -198,6 +239,5 @@ class Atari(embodied.Env):
         is_first=is_first,
         is_last=is_last,
         is_terminal=is_last,
-        player_position=self.character_position,
     )
 
