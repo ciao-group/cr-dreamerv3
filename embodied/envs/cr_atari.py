@@ -75,6 +75,8 @@ class CrAtari(Atari):
             'is_terminal': elements.Space(bool),
             'log/player_position_x': elements.Space(np.uint8),
             'log/player_position_y': elements.Space(np.uint8),
+            'log/player_position_x_raw': elements.Space(np.uint8),
+            'log/player_position_y_raw': elements.Space(np.uint8),
             'log/player_bb_w': elements.Space(np.uint8),
             'log/player_bb_h': elements.Space(np.uint8),
             'log/avatar_distance_vision_square': elements.Space(np.float32),
@@ -243,11 +245,15 @@ class CrAtari(Atari):
                 np.copyto(dst, self.buffers[0])
 
     def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
-        char_x, char_y, char_w, char_h = self._scale_bounding_box(self.character_position[0],
-                                                                  self.character_position[1])
+        character_x_raw = self.character_position[0]
+        character_y_raw = self.character_position[1]
+        char_x, char_y, char_w, char_h = self._scale_bounding_box(character_x_raw, character_y_raw)
+
         obs = super()._obs(reward, is_last, is_terminal)
         obs["log/player_position_x"] = char_x
         obs["log/player_position_y"] = char_y
+        obs["log/player_position_x_raw"] = character_x_raw
+        obs["log/player_position_y_raw"] = character_y_raw
         obs["log/player_bb_w"]= char_w
         obs["log/player_bb_h"]= char_h
         obs["log/avatar_distance_vision_square"]= self.distance_avatar_vision_square()
