@@ -80,6 +80,8 @@ class CrAtari(Atari):
             'log/player_bb_w': elements.Space(np.uint8),
             'log/player_bb_h': elements.Space(np.uint8),
             'log/avatar_distance_vision_square': elements.Space(np.float32),
+            'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
+            'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
         }
 
     @property
@@ -97,6 +99,12 @@ class CrAtari(Atari):
             ),
         }
 
+    def distance_avatar_vision_square_scaled(self) -> float:
+        return vision.distance_to_vision_square_scaled(gaze_position=self.prev_gaze_position,
+                                                vision_square_count=self.vision_square_count,
+                                                vision_square_size=self.scaled_vision_square_size, bbox_to_check=(
+            self.character_position[0], self.character_position[1], 8, 11), x_scale=self.size[0] / self.W, y_scale=self.size[1] / self.H)
+
     def distance_avatar_vision_square(self) -> float:
         return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
 
@@ -104,6 +112,10 @@ class CrAtari(Atari):
         if self.prev_gaze_position:
             return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
         return False
+
+    def avatar_is_observed_scaled(self) -> bool:
+        if self.prev_gaze_position:
+            return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H)
 
     def step(self, action):
 
@@ -257,4 +269,7 @@ class CrAtari(Atari):
         obs["log/player_bb_w"]= char_w
         obs["log/player_bb_h"]= char_h
         obs["log/avatar_distance_vision_square"]= self.distance_avatar_vision_square()
+        obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
+        obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
+
         return obs

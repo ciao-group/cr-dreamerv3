@@ -17,6 +17,19 @@ def check_if_bbox_intersects_vision_square(
     distance = distance_to_vision_square(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
     return distance <= 0
 
+def check_if_bbox_intersects_vision_square_scaled(
+        gaze_position: int,
+        vision_square_count: tuple[int, int],
+        vision_square_size: tuple[int, int],
+        bbox_to_check: tuple[int, int, int, int],
+        scale_x: float,
+        scale_y: float,
+) -> bool:
+    distance = distance_to_vision_square_scaled(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, x_scale=scale_x, y_scale=scale_y )
+    # Due to non-linear gray-style mapping it may happen that 1px becomes now 3 "blended" pixels
+    # In the observation (84x84) bounding boxes can overlap even if they did not in the not scaled environment (160x210)
+    return distance <= 3
+
 def distance_to_vision_square(
         gaze_position: int,
         vision_square_count: tuple[int, int],
@@ -25,6 +38,20 @@ def distance_to_vision_square(
 ) -> float:
     dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
     return math.hypot(dx, dy)
+
+def distance_to_vision_square_scaled(
+        gaze_position: int,
+        vision_square_count: tuple[int, int],
+        vision_square_size: tuple[int, int],
+        bbox_to_check: tuple[int, int, int, int],
+        x_scale: float,
+        y_scale: float,
+) -> float:
+    dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count,
+                                              vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+
+    return math.hypot(x_scale * dx, y_scale * dy)
+
 
 def distance_to_vision_square_deltas(
         gaze_position: int,
@@ -148,7 +175,6 @@ def convert_1d_vision_square_position_to_2d(
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
 ) -> tuple[int, int]:
-
     x = vision_square_position % vision_square_count[0] * vision_square_size[0]
     y = vision_square_position // vision_square_count[0] * vision_square_size[1]
 
