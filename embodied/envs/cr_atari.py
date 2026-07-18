@@ -1,10 +1,8 @@
 import elements
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 import embodied.core.vision as vision
 from embodied.envs.atari import Atari
-
 
 class CrAtari(Atari):
     def __init__(
