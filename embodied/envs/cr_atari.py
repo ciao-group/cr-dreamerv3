@@ -77,6 +77,7 @@ class CrAtari(Atari):
             'log/player_position_y': elements.Space(np.uint8),
             'log/player_bb_w': elements.Space(np.uint8),
             'log/player_bb_h': elements.Space(np.uint8),
+            'log/avatar_distance_vision_square': elements.Space(np.float32),
         }
 
     @property
@@ -93,6 +94,14 @@ class CrAtari(Atari):
                 self.vision_square_count[0] * self.vision_square_count[1],
             ),
         }
+
+    def distance_avatar_vision_square(self) -> float:
+        return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+
+    def avatar_is_observed(self) -> bool:
+        if self.prev_gaze_position:
+            return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+        return False
 
     def step(self, action):
 
@@ -241,4 +250,5 @@ class CrAtari(Atari):
         obs["log/player_position_y"] = char_y
         obs["log/player_bb_w"]= char_w
         obs["log/player_bb_h"]= char_h
+        obs["log/avatar_distance_vision_square"]= self.distance_avatar_vision_square()
         return obs

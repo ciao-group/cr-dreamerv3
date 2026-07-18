@@ -1,5 +1,5 @@
+import math
 from typing import Literal
-
 import numpy as np
 from scipy.ndimage import gaussian_filter
 import cv2
@@ -8,6 +8,77 @@ Vision_Mode_Type = Literal[
     "foveated", "periphery", "periphery-cutoff", "exponential-fovea"
 ]
 
+def check_if_bbox_intersects_vision_square(
+        gaze_position: int,
+        vision_square_count: tuple[int, int],
+        vision_square_size: tuple[int, int],
+        bbox_to_check: tuple[int, int, int, int],
+) -> bool:
+    distance = distance_to_vision_square(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+    return distance <= 0
+
+def distance_to_vision_square(
+        gaze_position: int,
+        vision_square_count: tuple[int, int],
+        vision_square_size: tuple[int, int],
+        bbox_to_check: tuple[int, int, int, int],
+) -> float:
+    dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+    return math.hypot(dx, dy)
+
+def distance_to_vision_square_deltas(
+        gaze_position: int,
+        vision_square_count: tuple[int, int],
+        vision_square_size: tuple[int, int],
+        bbox_to_check: tuple[int, int, int, int],
+) -> tuple[float,float]:
+    """
+    Checks if any part of a given bounding box intersects with the vision square.
+
+    Args:
+        gaze_position: The 1D index of the vision square.
+        vision_square_count: The total number of vision squares (e.g., columns, rows).
+        vision_square_size: The dimensions of the vision square (width, height).
+        bbox_to_check: The bounding box formatted as (x, y, w, h) where (x, y)
+                       is the top-left corner. Assumes Y increases downwards.
+
+    Returns:
+        bool: True if the bounding box and the vision square overlap, False otherwise.
+    """
+    # 1. Calculate the center of the vision square
+    x_center, y_center = convert_1d_vision_square_position_to_2d_center(
+        vision_square_position=gaze_position,
+        vision_square_count=vision_square_count,
+        vision_square_size=vision_square_size
+    )
+
+    # 2. Calculate the boundaries of the vision square
+    v_x_min = x_center - vision_square_size[0] // 2
+    v_x_max = x_center + vision_square_size[0] // 2
+    v_y_min = y_center - vision_square_size[1] // 2
+    v_y_max = y_center + vision_square_size[1] // 2
+
+    # 3. Unpack and calculate the boundaries of the target bounding box
+    b_x, b_y, b_w, b_h = bbox_to_check
+
+
+    # Top-left corner (b_x, b_y) represents the minimum x and y values
+    b_x_min = b_x
+    b_y_min = b_y
+
+    # Calculate bottom-right corner by adding width and height
+    b_x_max = b_x + b_w
+    b_y_max = b_y + b_h
+
+    # Calculate the exact distance between the edges along the x-axis
+    # If the rectangles overlap horizontally, dx will be 0
+    dx = max(0, v_x_min - b_x_max, b_x_min - v_x_max)
+
+    # Calculate the exact distance between the edges along the y-axis
+    # If the rectangles overlap vertically, dy will be 0
+    dy = max(0, v_y_min - b_y_max, b_y_min - v_y_max)
+
+    return dx, dy
 
 def apply_vision_square(
     gaze_position: int,
