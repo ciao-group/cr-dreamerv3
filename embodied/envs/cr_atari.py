@@ -214,8 +214,10 @@ class CrAtari(Atari):
             if terminal or last:
                 break
         self.done = last
-        obs = self._obs(reward, is_last=last, is_terminal=terminal)
+        # TODO: Does swapping these two lines breaks anything?
+        # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
+        obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
 
     def _reset(self):
