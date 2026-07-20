@@ -69,7 +69,8 @@ def eval_only(make_agent, make_env, make_logger, args):
           x, y = vision.convert_1d_vision_square_position_to_2d_random(
               vision_square_position=gaze_position,
               vision_square_count=vision_square_count,
-              vision_square_size=vision_square_size
+              vision_square_size=vision_square_size,
+              screen_size=(160,210),
           )
           gaze_heatmap_image[y,x] += 1
 

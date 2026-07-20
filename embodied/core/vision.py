@@ -1,8 +1,10 @@
 import math
 from typing import Literal
 import numpy as np
+from polars import self_dtype
 from scipy.ndimage import gaussian_filter
 import cv2
+import inspect
 
 Vision_Mode_Type = Literal[
     "foveated", "periphery", "periphery-cutoff", "exponential-fovea"
@@ -13,8 +15,9 @@ def check_if_bbox_intersects_vision_square(
         vision_square_count: tuple[int, int],
         vision_square_size: tuple[int, int],
         bbox_to_check: tuple[int, int, int, int],
+        screen_size: tuple[int, int],
 ) -> bool:
-    distance = distance_to_vision_square(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+    distance = distance_to_vision_square(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, screen_size=screen_size)
     return distance <= 0
 
 def check_if_bbox_intersects_vision_square_scaled(
@@ -24,8 +27,9 @@ def check_if_bbox_intersects_vision_square_scaled(
         bbox_to_check: tuple[int, int, int, int],
         scale_x: float,
         scale_y: float,
+        screen_size: tuple[int, int],
 ) -> bool:
-    distance = distance_to_vision_square_scaled(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, x_scale=scale_x, y_scale=scale_y )
+    distance = distance_to_vision_square_scaled(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, x_scale=scale_x, y_scale=scale_y, screen_size=screen_size)
     # Due to non-linear gray-style mapping it may happen that 1px becomes now 3 "blended" pixels
     # In the observation (84x84) bounding boxes can overlap even if they did not in the not scaled environment (160x210)
     return distance <= 3
@@ -34,9 +38,10 @@ def distance_to_vision_square(
         gaze_position: int,
         vision_square_count: tuple[int, int],
         vision_square_size: tuple[int, int],
+        screen_size: tuple[int, int],
         bbox_to_check: tuple[int, int, int, int],
 ) -> float:
-    dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+    dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count, vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, screen_size=screen_size)
     return math.hypot(dx, dy)
 
 def distance_to_vision_square_scaled(
@@ -46,9 +51,10 @@ def distance_to_vision_square_scaled(
         bbox_to_check: tuple[int, int, int, int],
         x_scale: float,
         y_scale: float,
+        screen_size: tuple[int, int],
 ) -> float:
     dx, dy = distance_to_vision_square_deltas(gaze_position=gaze_position, vision_square_count=vision_square_count,
-                                              vision_square_size=vision_square_size, bbox_to_check=bbox_to_check)
+                                              vision_square_size=vision_square_size, bbox_to_check=bbox_to_check, screen_size=screen_size)
 
     return math.hypot(x_scale * dx, y_scale * dy)
 
@@ -58,6 +64,7 @@ def distance_to_vision_square_deltas(
         vision_square_count: tuple[int, int],
         vision_square_size: tuple[int, int],
         bbox_to_check: tuple[int, int, int, int],
+        screen_size: tuple[int, int],
 ) -> tuple[float,float]:
     """
     Checks if any part of a given bounding box intersects with the vision square.
@@ -72,11 +79,13 @@ def distance_to_vision_square_deltas(
     Returns:
         bool: True if the bounding box and the vision square overlap, False otherwise.
     """
+
     # 1. Calculate the center of the vision square
     x_center, y_center = convert_1d_vision_square_position_to_2d_center(
         vision_square_position=gaze_position,
         vision_square_count=vision_square_count,
-        vision_square_size=vision_square_size
+        vision_square_size=vision_square_size,
+        screen_size=screen_size,
     )
 
     # 2. Calculate the boundaries of the vision square
@@ -173,23 +182,23 @@ def calc_vision_square_count(
 def convert_1d_vision_square_position_to_2d(
     vision_square_position: int,
     vision_square_count: tuple[int, int],
-    vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int]
 ) -> tuple[int, int]:
-    x = vision_square_position % vision_square_count[0] * vision_square_size[0]
-    y = vision_square_position // vision_square_count[0] * vision_square_size[1]
-
+    x = vision_square_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
+    y = vision_square_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
     return x, y
 
 
 def convert_1d_vision_square_position_to_2d_center(
     vision_square_position: int,
     vision_square_count: tuple[int, int],
-    vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
+    vision_square_size: tuple[int, int]
 ) -> tuple[int, int]:
     x, y = convert_1d_vision_square_position_to_2d(
         vision_square_position=vision_square_position,
         vision_square_count=vision_square_count,
-        vision_square_size=vision_square_size,
+        screen_size=screen_size,
     )
 
     return (x + vision_square_size[0] // 2, y + vision_square_size[1] // 2)
@@ -198,12 +207,13 @@ def convert_1d_vision_square_position_to_2d_center(
 def convert_1d_vision_square_position_to_2d_random(
     vision_square_position: int,
     vision_square_count: tuple[int, int],
-    vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
+    vision_square_size: tuple[int, int]
 ) -> tuple[int, int]:
     x, y = convert_1d_vision_square_position_to_2d(
             vision_square_position=vision_square_position,
             vision_square_count=vision_square_count,
-            vision_square_size=vision_square_size,
+            screen_size=screen_size,
         )
     x += np.round(np.random.rand() * (vision_square_size[0] - 1)).astype("int32")
     y += np.round(np.random.rand() * (vision_square_size[1] - 1)).astype("int32")
@@ -213,11 +223,12 @@ def convert_1d_vision_square_position_to_2d_random(
 def convert_2d_gaze_position_to_1d_vision_square_position(
     gaze_position: tuple[int, int],
     vision_square_count: tuple[int, int],
-    vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
 ) -> int:
+    # Important: does not address overlapping positions
     vision_square_position = int(
-        (gaze_position[0] // vision_square_size[0])
-        + (gaze_position[1] // vision_square_size[1] * vision_square_count[0])
+        (gaze_position[0] // (screen_size[0] // vision_square_count[0]))
+        + (gaze_position[1] // (screen_size[1] // vision_square_count[1]) * vision_square_count[0])
     )
     return vision_square_position
 
@@ -281,18 +292,21 @@ def calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
     next_position: int,
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
     visual_degrees_per_pixel: np.ndarray
     ) -> float:
 
     x_1, y_1 = convert_1d_vision_square_position_to_2d_center(
         vision_square_position=prev_position,
         vision_square_count=vision_square_count,
-        vision_square_size=vision_square_size
+        vision_square_size=vision_square_size,
+        screen_size=screen_size,
     )
     x_2, y_2 = convert_1d_vision_square_position_to_2d_center(
             vision_square_position=next_position,
             vision_square_count=vision_square_count,
-            vision_square_size=vision_square_size
+            vision_square_size=vision_square_size,
+            screen_size=screen_size,
         )
 
     pixel_distance = np.array([x_1-x_2, y_1-y_2])
@@ -307,6 +321,7 @@ def calc_EMMA_time_from_1d_vision_square_positions(
     next_position: int,
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
     visual_degrees_per_pixel: np.ndarray
 ):
     if prev_position is None or prev_position == next_position:
@@ -317,6 +332,7 @@ def calc_EMMA_time_from_1d_vision_square_positions(
                 next_position=next_position,
                 vision_square_count=vision_square_count,
                 vision_square_size=vision_square_size,
+                screen_size=screen_size,
                 visual_degrees_per_pixel=visual_degrees_per_pixel
             )
 
