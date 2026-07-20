@@ -122,10 +122,10 @@ def apply_vision_square(
     mode: Vision_Mode_Type,
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
-    size: tuple[int, int],
+    screen_size: tuple[int, int],
 ) -> np.ndarray:
-    x = gaze_position % vision_square_count[0] * vision_square_size[0]
-    y = gaze_position // vision_square_count[0] * vision_square_size[1]
+    x = gaze_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
+    y = gaze_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
 
     if mode == "foveated":
         new_image = np.zeros(image.shape, dtype=np.uint8)
@@ -143,8 +143,8 @@ def apply_vision_square(
                 y_blur = y + dy * vision_square_size[1]
 
                 if (
-                    x_blur + vision_square_size[0] > size[0]
-                    or y_blur + vision_square_size[1] > size[1]
+                    x_blur + vision_square_size[0] > screen_size[0]
+                    or y_blur + vision_square_size[1] > screen_size[1]
                 ):
                     continue
 

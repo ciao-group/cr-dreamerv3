@@ -140,7 +140,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 mode=vision_mode,
                 vision_square_count=vision_square_count,
                 vision_square_size=scaled_vision_square_size,
-                size=size,
+                screen_size=size,
             )
 
             # Rotate batch to the right

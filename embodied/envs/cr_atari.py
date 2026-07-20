@@ -136,7 +136,7 @@ class CrAtari(Atari):
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,
                             vision_square_size=self.scaled_vision_square_size,
-                            size=(self.W, self.H),
+                            screen_size=(self.W, self.H),
                         )
 
             self.prevlives = self.ale.lives()
@@ -197,7 +197,7 @@ class CrAtari(Atari):
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,
                             vision_square_size=self.scaled_vision_square_size,
-                            size=(self.W, self.H),
+                            screen_size=(self.W, self.H),
                         )
 
             if self.ale.game_over():
@@ -253,7 +253,7 @@ class CrAtari(Atari):
             mode=self.vision_mode,
             vision_square_count=self.vision_square_count,
             vision_square_size=self.scaled_vision_square_size,
-            size=(self.W, self.H),
+            screen_size=(self.W, self.H),
         )
         self.prev_gaze_position = initial_gaze_position
         for i, dst in enumerate(self.buffers):
