@@ -23,6 +23,7 @@ class CrAtari(Atari):
         clip_reward=False,
         seed=None,
         vision_square_size=(12, 12),
+        vision_square_count: tuple[int, int] | None = None,
         vision_mode: vision.Vision_Mode_Type = "foveated",
         vision_model: str | None = None,
         motor_action_delay: bool = False
@@ -48,16 +49,19 @@ class CrAtari(Atari):
         self.vision_square_size = vision_square_size
         self.vision_mode: vision.Vision_Mode_Type = vision_mode
         self.vision_model = vision_model
-        # Number of all possible horizontal and vertical vision squares
-        self.vision_square_count = vision.calc_vision_square_count(
+
+        self.vision_square_count = vision_square_count if vision_square_count is not None else vision.calc_vision_square_count(
             self.size, self.vision_square_size
         )
         self.H, self.W = self.ale.getScreenDims()
+
+        assert self.vision_square_count[0] * self.vision_square_size[0] >= self.size[0], f"vision_square_count {vision_square_count[0]} does not match dimensions self.vision_square_size: {self.vision_square_size[0]}, H: {self.H}, W: {self.W}"
 
         self.scaled_vision_square_size = (
                     self.vision_square_size[0] * self.W // self.size[0],
                     self.vision_square_size[1] * self.H // self.size[1]
                 )
+
         self.TIME_PER_FRAME = 0.05 # Represents 20 Hz
         VISUAL_DEGREE_SCREEN_SIZE = (44.6, 28.5) # (W,H)
         self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array(self.size)
