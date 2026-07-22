@@ -23,6 +23,7 @@ class CrAtari(Atari):
         clip_reward=False,
         seed=None,
         vision_square_size=(12, 12),
+        vision_square_count: tuple[int, int] | None = None,
         vision_mode: vision.Vision_Mode_Type = "foveated",
         vision_model: str | None = None,
         motor_action_delay: bool = False
@@ -48,16 +49,19 @@ class CrAtari(Atari):
         self.vision_square_size = vision_square_size
         self.vision_mode: vision.Vision_Mode_Type = vision_mode
         self.vision_model = vision_model
-        # Number of all possible horizontal and vertical vision squares
-        self.vision_square_count = vision.calc_vision_square_count(
+
+        self.vision_square_count = vision_square_count if vision_square_count is not None else vision.calc_vision_square_count(
             self.size, self.vision_square_size
         )
         self.H, self.W = self.ale.getScreenDims()
+
+        assert self.vision_square_count[0] * self.vision_square_size[0] >= self.size[0], f"vision_square_count {vision_square_count[0]} does not match dimensions self.vision_square_size: {self.vision_square_size[0]}, H: {self.H}, W: {self.W}"
 
         self.scaled_vision_square_size = (
                     self.vision_square_size[0] * self.W // self.size[0],
                     self.vision_square_size[1] * self.H // self.size[1]
                 )
+
         self.TIME_PER_FRAME = 0.05 # Represents 20 Hz
         VISUAL_DEGREE_SCREEN_SIZE = (44.6, 28.5) # (W,H)
         self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array(self.size)
@@ -103,19 +107,19 @@ class CrAtari(Atari):
         return vision.distance_to_vision_square_scaled(gaze_position=self.prev_gaze_position,
                                                 vision_square_count=self.vision_square_count,
                                                 vision_square_size=self.scaled_vision_square_size, bbox_to_check=(
-            self.character_position[0], self.character_position[1], 8, 11), x_scale=self.size[0] / self.W, y_scale=self.size[1] / self.H)
+            self.character_position[0], self.character_position[1], 8, 11), x_scale=self.size[0] / self.W, y_scale=self.size[1] / self.H, screen_size=(self.W, self.H))
 
     def distance_avatar_vision_square(self) -> float:
-        return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+        return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), screen_size=(self.W, self.H))
 
     def avatar_is_observed(self) -> bool:
         if self.prev_gaze_position:
-            return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+            return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), screen_size=(self.W, self.H))
         return False
 
     def avatar_is_observed_scaled(self) -> bool:
         if self.prev_gaze_position:
-            return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H)
+            return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H, screen_size=(self.W, self.H))
 
     def step(self, action):
 
@@ -136,7 +140,7 @@ class CrAtari(Atari):
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,
                             vision_square_size=self.scaled_vision_square_size,
-                            size=(self.W, self.H),
+                            screen_size=(self.W, self.H),
                         )
 
             self.prevlives = self.ale.lives()
@@ -153,6 +157,7 @@ class CrAtari(Atari):
                 next_position=gaze_position,
                 vision_square_count=self.vision_square_count,
                 vision_square_size=self.vision_square_size,
+                screen_size=(self.W, self.H),
                 visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL
             )
             emma_frames = emma_time // self.TIME_PER_FRAME
@@ -196,7 +201,7 @@ class CrAtari(Atari):
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,
                             vision_square_size=self.scaled_vision_square_size,
-                            size=(self.W, self.H),
+                            screen_size=(self.W, self.H),
                         )
 
             if self.ale.game_over():
@@ -243,15 +248,16 @@ class CrAtari(Atari):
                         self.vision_square_count[0] * self.vision_square_size[0] // 2,
                         self.vision_square_count[1] * self.vision_square_size[1] // 2
                     ),
-                    self.vision_square_count,
-                    self.vision_square_size)
+                    vision_square_count= self.vision_square_count,
+                    screen_size=(self.H, self.W),
+        )
         self.buffers[0] = vision.apply_vision_square(
             gaze_position=initial_gaze_position,
             image=self.buffers[0],
             mode=self.vision_mode,
             vision_square_count=self.vision_square_count,
             vision_square_size=self.scaled_vision_square_size,
-            size=(self.W, self.H),
+            screen_size=(self.W, self.H),
         )
         self.prev_gaze_position = initial_gaze_position
         for i, dst in enumerate(self.buffers):
