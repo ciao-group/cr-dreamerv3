@@ -134,27 +134,76 @@ def main(argv=None):
   elif config.script == 'test':
 
       import matplotlib.pyplot as plt
+      import matplotlib.patches as patches
       env = make_env(config, 0)
       print(env.act_space)
       print(env.obs_space)
 
       action = {
-          "action": np.int32(2),
+          "action": np.int32(0),
           "reset": False,
           "gaze_position": np.int32(0)
           # "pause": np.int32(0),
       }
-
-      # To reset:
+      # reset
       env.step(action)
 
-      for i in range(16):
+
+      for i in range(24):
+        print(f"\n-----------")
+        action["gaze_position"] = np.int32(i)
+
         obs = env.step(action)
-        plt.imshow(obs["image"], cmap="gray")
+
+        print(f"character in vision square {env.avatar_is_observed()}")
+        print(f"gaze action: {action['gaze_position']}")
+        print(f"distance vision square: {obs['log/avatar_distance_vision_square']}")
+        print(f"distance vision square scaled: {obs['log/avatar_distance_vision_square_scaled']}")
+        print(f"avatar position: ({obs['log/player_position_x']}, {obs['log/player_position_y']}), bb: (w= {obs['log/player_bb_w']}, h={obs['log/player_bb_h']})")
+        print(f"avatar position raw: ({obs['log/player_position_x_raw']}, {obs['log/player_position_y_raw']})")
+        print(f"avatar is in vision square scaled: {obs['log/avatar_is_in_vision_square_scaled']}")
+
+        # these coordinates are already scaled for the 84x84 image
+        player_x = obs["log/player_position_x"]
+        player_y = obs["log/player_position_y"]
+        bb_w = obs["log/player_bb_w"]
+        bb_h = obs["log/player_bb_h"]
+
+        image_array = obs['image']
+
+        # draw bounding box in obs
+        # Create figure and axes
+        fig, ax = plt.subplots(1)
+
+        # Display the image (use grayscale colormap if it's a 2D array)
+        if len(image_array.shape) == 2 or (len(image_array.shape) == 3 and image_array.shape[2] == 1):
+            ax.imshow(image_array, cmap='gray')
+        else:
+            ax.imshow(image_array)
+
+        # Create a Rectangle patch
+        # Note: Matplotlib's Rectangle takes (x, y) as the bottom-left corner in some
+        # coordinate systems, but for image plots, top-left is standard.
+        rect = patches.Rectangle(
+            (player_x - bb_w, player_y), bb_w, bb_h,
+            linewidth=1,
+            edgecolor='r',
+            facecolor='none'
+        )
+
+        # Add the patch to the Axes
+        ax.add_patch(rect)
+
+        # Remove axes ticks for a cleaner look
+        ax.axis('off')
+
         plt.show()
 
-        if action['gaze_position'] < env.act_space["gaze_position"].high-1:
-            action["gaze_position"] += np.int32(1)
+
+        # if action['gaze_position'] < env.act_space["gaze_position"].high-1:
+        #     action["gaze_position"] += np.int32(1)
+
+        print("---------------------------\n")
 
   else:
     raise NotImplementedError(config.script)

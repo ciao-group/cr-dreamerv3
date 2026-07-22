@@ -1,10 +1,8 @@
 import elements
 import numpy as np
-from scipy.ndimage import gaussian_filter
 
 import embodied.core.vision as vision
 from embodied.envs.atari import Atari
-
 
 class CrAtari(Atari):
     def __init__(
@@ -68,6 +66,25 @@ class CrAtari(Atari):
         self.motor_action_delay = motor_action_delay
 
     @property
+    def obs_space(self):
+        return {
+            'image': elements.Space(np.uint8, (*self.size, 1 if self.gray else 3)),
+            'reward': elements.Space(np.float32),
+            'is_first': elements.Space(bool),
+            'is_last': elements.Space(bool),
+            'is_terminal': elements.Space(bool),
+            'log/player_position_x': elements.Space(np.uint8),
+            'log/player_position_y': elements.Space(np.uint8),
+            'log/player_position_x_raw': elements.Space(np.uint8),
+            'log/player_position_y_raw': elements.Space(np.uint8),
+            'log/player_bb_w': elements.Space(np.uint8),
+            'log/player_bb_h': elements.Space(np.uint8),
+            'log/avatar_distance_vision_square': elements.Space(np.float32),
+            'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
+            'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
+        }
+
+    @property
     def act_space(self):
 
         return {
@@ -81,6 +98,24 @@ class CrAtari(Atari):
                 self.vision_square_count[0] * self.vision_square_count[1],
             ),
         }
+
+    def distance_avatar_vision_square_scaled(self) -> float:
+        return vision.distance_to_vision_square_scaled(gaze_position=self.prev_gaze_position,
+                                                vision_square_count=self.vision_square_count,
+                                                vision_square_size=self.scaled_vision_square_size, bbox_to_check=(
+            self.character_position[0], self.character_position[1], 8, 11), x_scale=self.size[0] / self.W, y_scale=self.size[1] / self.H)
+
+    def distance_avatar_vision_square(self) -> float:
+        return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+
+    def avatar_is_observed(self) -> bool:
+        if self.prev_gaze_position:
+            return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11))
+        return False
+
+    def avatar_is_observed_scaled(self) -> bool:
+        if self.prev_gaze_position:
+            return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H)
 
     def step(self, action):
 
@@ -179,8 +214,10 @@ class CrAtari(Atari):
             if terminal or last:
                 break
         self.done = last
-        obs = self._obs(reward, is_last=last, is_terminal=terminal)
+        # TODO: Does swapping these two lines breaks anything?
+        # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
+        obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
 
     def _reset(self):
@@ -220,3 +257,21 @@ class CrAtari(Atari):
         for i, dst in enumerate(self.buffers):
             if i > 0:
                 np.copyto(dst, self.buffers[0])
+
+    def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
+        character_x_raw = self.character_position[0]
+        character_y_raw = self.character_position[1]
+        char_x, char_y, char_w, char_h = self._scale_bounding_box(character_x_raw, character_y_raw)
+
+        obs = super()._obs(reward, is_last, is_terminal)
+        obs["log/player_position_x"] = char_x
+        obs["log/player_position_y"] = char_y
+        obs["log/player_position_x_raw"] = character_x_raw
+        obs["log/player_position_y_raw"] = character_y_raw
+        obs["log/player_bb_w"]= char_w
+        obs["log/player_bb_h"]= char_h
+        obs["log/avatar_distance_vision_square"]= self.distance_avatar_vision_square()
+        obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
+        obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
+
+        return obs

@@ -9,6 +9,7 @@ import embodied
 import numpy as np
 
 from PIL import Image
+from typing import Tuple
 
 
 class Atari(embodied.Env):
@@ -47,6 +48,7 @@ class Atari(embodied.Env):
     self.autostart = autostart
     self.clip_reward = clip_reward
     self.rng = np.random.default_rng(seed)
+    self.name = name
 
     with self.LOCK:
       self.ale = ale_py.ALEInterface()
@@ -88,6 +90,69 @@ class Atari(embodied.Env):
         'action': elements.Space(np.int32, (), 0, len(self.actionset)),
         'reset': elements.Space(bool),
     }
+
+  @property
+  def character_position(self) -> Tuple[int, int]:
+    ram = self.ale.getRAM()
+    ram_addresses = {
+      "asterix": {"x": 41, "y": 39},
+      "hero": {"x": 27, "y": 31},
+      "seaquest": {"x": 70, "y": 97}
+    }
+    if self.name not in ram_addresses:
+      raise ValueError(f"RAM addresses for game '{self.name}' are currently unknown.")
+
+    x_addr = ram_addresses[self.name]["x"]
+    y_addr = ram_addresses[self.name]["y"]
+
+    # Retrieve and return the values from the current RAM state
+    player_x = ram[x_addr]
+    player_y = ram[y_addr]
+
+    # convert to pixels
+    # asterix only
+    if self.name.lower() == "asterix":
+      player_x_screen = player_x + 8
+      player_y_screen = 16 * player_y + 26
+      return player_x_screen, player_y_screen
+
+    return player_x, player_y
+
+  def _scale_bounding_box(self, x, y, w=8, h=11, orig_w=160, orig_h=210) -> Tuple[int, int, int, int]:
+    """
+    Scales a bounding box from the original Atari screen resolution
+    to a new target resolution.
+
+    Args:
+        x (int): Original X coordinate.
+        y (int): Original Y coordinate.
+        w (int): Original width, asterix=8.
+        h (int): Original height, asterix=11.
+        orig_w (int): Original screen width (default: 160).
+        orig_h (int): Original screen height (default: 210).
+
+    Returns:
+        tuple: A tuple containing the scaled (x, y, width, height).
+    """
+
+    new_w, new_h = self.size
+
+    # Calculate the scale factors for both axes
+    scale_x = new_w / orig_w
+    scale_y = new_h / orig_h
+
+    # Apply scaling and round to nearest integer to get valid pixel indices
+    scaled_x = int(round(x * scale_x))
+    scaled_y = int(round(y * scale_y))
+    scaled_w = int(round(w * scale_x))
+    scaled_h = int(round(h * scale_y))
+
+    # Ensure width and height are at least 1 pixel wide/high
+    scaled_w = max(1, scaled_w)
+    scaled_h = max(1, scaled_h)
+
+    return scaled_x, scaled_y, scaled_w, scaled_h
+
 
   def step(self, action):
     if action['reset'] or self.done:
@@ -175,3 +240,4 @@ class Atari(embodied.Env):
         is_last=is_last,
         is_terminal=is_last,
     )
+
