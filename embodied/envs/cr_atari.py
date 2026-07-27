@@ -99,7 +99,7 @@ class CrAtari(Atari):
                 np.int32,
                 (),
                 0,
-                self.vision_square_count[0] * self.vision_square_count[1],
+                self.vision_square_count[0] * self.vision_square_count[1] - 1,
             ),
         }
 
@@ -196,7 +196,7 @@ class CrAtari(Atari):
             if repeat >= repeating - self.pooling:
                 self._render()
                 self.buffers[0] = vision.apply_vision_square(
-                    gaze_position=gaze_position if repeat >= emma_frames or self.prev_gaze_position is None else self.prev_gaze_position,
+                    gaze_position=gaze_position if repeat >= (emma_frames - 1) or self.prev_gaze_position is None else self.prev_gaze_position,
                             image=self.buffers[0],
                             mode=self.vision_mode,
                             vision_square_count=self.vision_square_count,
@@ -249,7 +249,7 @@ class CrAtari(Atari):
                         self.vision_square_count[1] * self.vision_square_size[1] // 2
                     ),
                     vision_square_count= self.vision_square_count,
-                    screen_size=(self.H, self.W),
+                    screen_size=self.size,
         )
         self.buffers[0] = vision.apply_vision_square(
             gaze_position=initial_gaze_position,

@@ -149,7 +149,7 @@ def main(argv=None):
       env.step(action)
 
 
-      for i in range(24):
+      for i in range(16):
         print(f"\n-----------")
         action["gaze_position"] = np.int32(i)
 
