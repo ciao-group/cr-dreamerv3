@@ -269,7 +269,7 @@ class CrAtari(Atari):
         character_y_raw = self.character_position[1]
         char_x, char_y, char_w, char_h = self._scale_bounding_box(character_x_raw, character_y_raw)
 
-        obs = super()._obs(reward, is_last, is_terminal)
+        obs = super()._obs(reward=reward, is_first=is_first, is_last=is_last, is_terminal=is_terminal)
         obs["log/player_position_x"] = char_x
         obs["log/player_position_y"] = char_y
         obs["log/player_position_x_raw"] = character_x_raw
