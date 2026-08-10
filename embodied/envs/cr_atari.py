@@ -151,6 +151,8 @@ class CrAtari(Atari):
 
         all_delay_times = {"default": 0.0}
         emma_frames = 0
+        effort_penalty = 0
+        print(f"Vision_model: {self.vision_model}")
         if self.vision_model == "EMMA":
             emma_time = vision.calc_EMMA_time_from_1d_vision_square_positions(
                 prev_position=self.prev_gaze_position,
@@ -162,6 +164,9 @@ class CrAtari(Atari):
             )
             emma_frames = emma_time // self.TIME_PER_FRAME
             all_delay_times["EMMA"] = emma_time
+
+            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
+            print(f"Effort Penalty: {effort_penalty}")
 
         motor_action_frames = 0
         if self.motor_action_delay:
@@ -222,6 +227,9 @@ class CrAtari(Atari):
         # TODO: Does swapping these two lines breaks anything?
         # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
+
+        # apply effort
+        reward -= effort_penalty
         obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
 
