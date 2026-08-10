@@ -264,6 +264,38 @@ def add_scanpath_to_image(
 def normalize_heatmap_image_0_to_255(gaze_heatmap_image: np.ndarray) -> np.ndarray:
     return ((gaze_heatmap_image - gaze_heatmap_image.min()) * (1/(gaze_heatmap_image.max() - gaze_heatmap_image.min()) * 255)).astype('uint8')
 
+def calc_effort(
+    position: int,
+    vision_square_count: tuple[int, int],
+    vision_square_size: tuple[int, int],
+    screen_size: tuple[int, int],
+    visual_degrees_per_pixel: np.ndarray,
+    kstatic: float = 0.001,
+    power_static: float = 2
+):
+    center = convert_2d_gaze_position_to_1d_vision_square_position(
+                    (
+                        vision_square_count[0] * vision_square_size[0] // 2,
+                        vision_square_count[1] * vision_square_size[1] // 2
+                    ),
+                    vision_square_count= vision_square_count,
+                    screen_size=screen_size,
+        )
+
+    distance = calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
+        prev_position=center,
+        next_position=position,
+        vision_square_count=vision_square_count,
+        vision_square_size=vision_square_size,
+        screen_size=screen_size,
+        visual_degrees_per_pixel=visual_degrees_per_pixel
+    )
+
+    eccentricity_deg = np.linalg.norm(distance)
+
+    return kstatic * (eccentricity_deg ** power_static)
+
+
 def calc_EMMA_time(dist: float, freq = 0.1, execution_time = 0.07, K=0.006, k=0.4, saccade_scaling = 0.002, t_prep = 0.135):
 
     t_enc = K * -np.log(freq) * np.exp(k * dist)
@@ -338,3 +370,34 @@ def calc_EMMA_time_from_1d_vision_square_positions(
 
     _, total_time, _ = calc_EMMA_time(distance)
     return total_time
+
+def sample_saccadic_latencies(
+    median_latency_ms: float = 205.0,
+    std_rate: float = 0.00095,
+    n_samples: int = 486,
+    random_state: int | None = 42,
+) -> np.ndarray:
+    """Sample saccadic latencies assuming reciprocal latency (rate) is normally distributed (LATER model).
+
+    Parameters:
+        median_latency_ms (float): Median latency in ms (determines mean rate
+          mu = 1 / median_latency).
+        std_rate (float): Standard deviation of the rate distribution (in 1/ms).
+        n_samples (int): Number of latency values to generate.
+        random_state (int, optional): Random seed for reproducibility.
+
+    Returns:
+        np.ndarray: Simulated latencies in milliseconds.
+    """
+    rng = np.random.default_rng(random_state)
+    mean_rate = 1.0 / median_latency_ms
+
+    # Oversample slightly to allow filtering of non-positive rates
+    raw_rates = rng.normal(
+        loc=mean_rate, scale=std_rate, size=int(n_samples * 1.2)
+    )
+    valid_rates = raw_rates[raw_rates > 0][:n_samples]
+
+    # Convert decision rates back to latencies
+    latencies = 1.0 / valid_rates
+    return latencies
