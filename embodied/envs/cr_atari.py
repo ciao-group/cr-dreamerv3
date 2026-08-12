@@ -171,8 +171,21 @@ class CrAtari(Atari):
         motor_action_frames = 0
         if self.motor_action_delay:
             motor_action_time = np.round(np.random.normal(70, 12.8398, None) / 1000, 2)
-            motor_action_frames = motor_action_time // self.TIME_PER_FRAME
-            all_delay_times["motor_action"] = motor_action_time
+
+            # Calculate reaction time based on a reciprocal normal distribution (LATER model).
+            # Mean rate of 5.0 corresponds to ~200ms peak latency.
+            reciprocal_rate = np.random.normal(loc=5.0, scale=0.8)
+
+            # Clip the rate to avoid division by zero or negative values.
+            # A minimum rate of 0.5 caps the maximum latency at 2.0 seconds.
+            reciprocal_rate = max(reciprocal_rate, 0.5)
+            reaction_time = np.round(1.0 / reciprocal_rate, 2)
+
+            # Add reaction time and motor delay to get the total delay
+            total_delay_time = motor_action_time + reaction_time
+
+            motor_action_frames = total_delay_time // self.TIME_PER_FRAME
+            all_delay_times["motor_action"] = total_delay_time
 
         repeating = self.repeat
         max_delay_time = max(list(all_delay_times.values()))
