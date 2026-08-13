@@ -68,6 +68,7 @@ class CrAtari(Atari):
         self.passed_time = 0
         self.prev_gaze_position = None
         self.motor_action_delay = motor_action_delay
+        self._game_score = 0
 
     @property
     def obs_space(self):
@@ -86,6 +87,7 @@ class CrAtari(Atari):
             'log/avatar_distance_vision_square': elements.Space(np.float32),
             'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
             'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
+            'log/game_score': elements.Space(np.float32),
         }
 
     @property
@@ -241,6 +243,9 @@ class CrAtari(Atari):
         # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
 
+        # save for logging raw ALE reward
+        self._game_score = reward
+
         # apply effort
         reward -= effort_penalty
         obs = self._obs(reward, is_last=last, is_terminal=terminal)
@@ -300,5 +305,6 @@ class CrAtari(Atari):
         obs["log/avatar_distance_vision_square"]= self.distance_avatar_vision_square()
         obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
         obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
+        obs["log/game_score"] = self._game_score
 
         return obs
