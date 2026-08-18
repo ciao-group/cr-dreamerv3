@@ -28,6 +28,7 @@ class CrAtari(Atari):
         vision_model: str | None = None,
         motor_action_delay: bool = False,
         reaction_time_delay: bool = False,
+        eye_movement_effort: bool = False,
     ):
         super().__init__(
             name,
@@ -71,6 +72,7 @@ class CrAtari(Atari):
         self.motor_action_delay = motor_action_delay
         self.reaction_time_delay = reaction_time_delay
         self._game_score = 0
+        self._eye_movement_effort = eye_movement_effort
 
     @property
     def obs_space(self):
@@ -251,7 +253,8 @@ class CrAtari(Atari):
         self._game_score = reward
 
         # apply effort
-        reward -= effort_penalty
+        if self._eye_movement_effort:
+            reward -= effort_penalty
         obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
 
