@@ -45,10 +45,13 @@ def train(make_agent, make_replay, make_env, make_stream, make_logger, args):
         episode.add(key + '/sum', value, agg='sum')
     if tran['is_last']:
       result = episode.result()
+      game_score = result.pop('log/game_score/sum', 0.0)
       logger.add({
-          'score': result.pop('score'),
-          'length': result.pop('length'),
+        'score': result.pop('score'),
+        'length': result.pop('length'),
+        'game_score': game_score,
       }, prefix='episode')
+
       rew = result.pop('rewards')
       if len(rew) > 1:
         result['reward_rate'] = (np.abs(rew[1:] - rew[:-1]) >= 0.01).mean()
