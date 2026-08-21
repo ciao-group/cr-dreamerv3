@@ -97,7 +97,8 @@ class Atari(embodied.Env):
     ram_addresses = {
       "asterix": {"x": 41, "y": 39},
       "hero": {"x": 27, "y": 31},
-      "seaquest": {"x": 70, "y": 97}
+      "seaquest": {"x": 70, "y": 97},
+      "frostbite": {"x": 102, "y": 100},
     }
     if self.name not in ram_addresses:
       raise ValueError(f"RAM addresses for game '{self.name}' are currently unknown.")
