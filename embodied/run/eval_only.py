@@ -29,7 +29,9 @@ def eval_only(make_agent, make_env, make_logger, args):
   @elements.timer.section('logfn')
   def logfn(tran, worker):
     episode = episodes[worker]
+    print(f"episode: {episode}")
     tran['is_first'] and episode.reset()
+    print(f"tran: {tran}")
     episode.add('score', tran['reward'], agg='sum')
     episode.add('length', 1, agg='sum')
     episode.add('rewards', tran['reward'], agg='stack')
@@ -59,6 +61,7 @@ def eval_only(make_agent, make_env, make_logger, args):
       if args["task"].startswith("cr-atari"):
         vision_square_size = args["cr-atari.vision_square_size"]
         size = args["cr-atari.size"]
+        print(f"size: {size}")
         gaze_heatmap_image = np.zeros(size + (1,), dtype=np.int32)
         gaze_scanpath_image = np.zeros((size[0]*SCALE_GAZE_SCANPATH_IMAGE, size[1]*SCALE_GAZE_SCANPATH_IMAGE, 1), dtype=np.uint8)
         gaze_positions = result.pop("gaze_positions")
@@ -73,6 +76,7 @@ def eval_only(make_agent, make_env, make_logger, args):
               vision_square_size=vision_square_size,
               screen_size=(160,210),
           )
+          print(f"x: {x}, y: {y}, gaze position: {gaze_position}, vision count: {vision_square_count}, vision square_size: {vision_square_size}")
           gaze_heatmap_image[y,x] += 1
 
           vision.add_scanpath_to_image(
