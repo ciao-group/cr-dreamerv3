@@ -217,8 +217,8 @@ def convert_1d_vision_square_position_to_2d_random(
             vision_square_count=vision_square_count,
             screen_size=screen_size,
         )
-    offset_x = np.round(np.random.rand() * (vision_square_size[0] - 1)).astype("int32")
-    offset_y = np.round(np.random.rand() * (vision_square_size[1] - 1)).astype("int32")
+    offset_x = np.round(np.random.rand() * (vision_square_size[0] // 2)).astype("int32")
+    offset_y = np.round(np.random.rand() * (vision_square_size[1] // 2)).astype("int32")
 
     if x + offset_x > 90 or y + offset_y > 90:
         print(f"x: {x}, y: {y}, offset_x: {offset_x}, offset_y: {offset_y}")
