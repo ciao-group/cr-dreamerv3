@@ -186,6 +186,8 @@ def convert_1d_vision_square_position_to_2d(
 ) -> tuple[int, int]:
     x = vision_square_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
     y = vision_square_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
+    if x > 90 or y > 90:
+        print(f"x {x}, y {y}, vision_square_position: {vision_square_position}, vision_square_count: {vision_square_count}")
     return x, y
 
 
