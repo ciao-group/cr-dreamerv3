@@ -31,7 +31,6 @@ def eval_only(make_agent, make_env, make_logger, args):
     episode = episodes[worker]
     print(f"episode: {episode}")
     tran['is_first'] and episode.reset()
-    print(f"tran: {tran}")
     episode.add('score', tran['reward'], agg='sum')
     episode.add('length', 1, agg='sum')
     episode.add('rewards', tran['reward'], agg='stack')
