@@ -73,7 +73,7 @@ def eval_only(make_agent, make_env, make_logger, args):
               vision_square_position=gaze_position,
               vision_square_count=vision_square_count,
               vision_square_size=vision_square_size,
-              screen_size=(160,210),
+              screen_size=size,
           )
           print(f"x: {x}, y: {y}, gaze position: {gaze_position}, vision count: {vision_square_count}, vision square_size: {vision_square_size}")
           gaze_heatmap_image[y,x] += 1
