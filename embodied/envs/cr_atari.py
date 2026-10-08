@@ -105,7 +105,7 @@ class CrAtari(Atari):
                 np.int32,
                 (),
                 0,
-                self.vision_square_count[0] * self.vision_square_count[1] - 1,
+                self.vision_square_count[0] * self.vision_square_count[1],
             ),
         }
 
