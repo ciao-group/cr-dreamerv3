@@ -123,19 +123,22 @@ def apply_vision_square(
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
     screen_size: tuple[int, int],
+    periphery_sigma: float = 2.0,
 ) -> np.ndarray:
     x = gaze_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
+    # Blur spatially only, never across color channels.
+    sigma = (periphery_sigma, periphery_sigma) + (0,) * (image.ndim - 2)
     y = gaze_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
 
     if mode == "foveated":
         new_image = np.zeros(image.shape, dtype=np.uint8)
 
     elif mode == "periphery":
-        new_image = gaussian_filter(image, 2)
+        new_image = gaussian_filter(image, sigma)
 
     elif mode == "periphery-cutoff":
         new_image = np.zeros(image.shape, dtype=np.uint8)
-        blur_image = gaussian_filter(image, 2)
+        blur_image = gaussian_filter(image, sigma)
 
         for dx in range(-1, 2):
             for dy in range(-1, 2):
