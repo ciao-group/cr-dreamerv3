@@ -51,26 +51,33 @@ def detect_fixations_idt(
     yd = ys * deg_per_px[1]
     fixations = []
     n = len(xs)
+    period = _sample_period(ts)
+    missing = np.isnan(xs) | np.isnan(ys)
+    missing_before = np.concatenate([[0], np.cumsum(missing)])
+    # Last sample of the minimal window starting at each sample.
+    window_end = np.searchsorted(ts, ts + min_duration_ms, 'left') - 1
     start = 0
     while start < n:
-        if np.isnan(xs[start]) or np.isnan(ys[start]):
-            start += 1
-            continue
-        end = start
-        while end + 1 < n and ts[end + 1] - ts[start] < min_duration_ms:
-            if np.isnan(xs[end + 1]):
-                break
-            end += 1
-        if ts[end] - ts[start] < min_duration_ms - _sample_period(ts):
+        end = window_end[start]
+        if (
+            missing[start] or
+            ts[end] - ts[start] < min_duration_ms - period or
+            missing_before[end + 1] - missing_before[start] > 0
+        ):
             start += 1
             continue
         if _dispersion(xd[start:end + 1], yd[start:end + 1]) > max_dispersion_deg:
             start += 1
             continue
-        while (
-            end + 1 < n and not np.isnan(xs[end + 1]) and
-            _dispersion(xd[start:end + 2], yd[start:end + 2]) <= max_dispersion_deg
-        ):
+        x_lo, x_hi = xd[start:end + 1].min(), xd[start:end + 1].max()
+        y_lo, y_hi = yd[start:end + 1].min(), yd[start:end + 1].max()
+        while end + 1 < n and not np.isnan(xs[end + 1]):
+            nx, ny = xd[end + 1], yd[end + 1]
+            nx_lo, nx_hi = min(x_lo, nx), max(x_hi, nx)
+            ny_lo, ny_hi = min(y_lo, ny), max(y_hi, ny)
+            if (nx_hi - nx_lo) + (ny_hi - ny_lo) > max_dispersion_deg:
+                break
+            x_lo, x_hi, y_lo, y_hi = nx_lo, nx_hi, ny_lo, ny_hi
             end += 1
         duration = ts[end] - ts[start] + _sample_period(ts)
         fixations.append((
