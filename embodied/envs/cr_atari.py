@@ -66,7 +66,8 @@ class CrAtari(Atari):
 
         self.TIME_PER_FRAME = 0.05 # Represents 20 Hz
         VISUAL_DEGREE_SCREEN_SIZE = (44.6, 28.5) # (W,H)
-        self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array(self.size)
+        # Gaze geometry is computed on the native ALE screen (W, H).
+        self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array((self.W, self.H))
         self.passed_time = 0
         self.prev_gaze_position = None
         self.motor_action_delay = motor_action_delay
@@ -164,14 +165,14 @@ class CrAtari(Atari):
                 prev_position=self.prev_gaze_position,
                 next_position=gaze_position,
                 vision_square_count=self.vision_square_count,
-                vision_square_size=self.vision_square_size,
+                vision_square_size=self.scaled_vision_square_size,
                 screen_size=(self.W, self.H),
                 visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL
             )
             emma_frames = emma_time // self.TIME_PER_FRAME
             all_delay_times["EMMA"] = emma_time
 
-            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
+            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
             print(f"Effort Penalty: {effort_penalty}")
 
         motor_action_frames = 0

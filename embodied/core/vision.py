@@ -186,8 +186,6 @@ def convert_1d_vision_square_position_to_2d(
 ) -> tuple[int, int]:
     x = vision_square_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
     y = vision_square_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
-    if x > 90 or y > 90:
-        print(f"x {x}, y {y}, vision_square_position: {vision_square_position}, vision_square_count: {vision_square_count}")
     return x, y
 
 
@@ -275,25 +273,19 @@ def calc_effort(
     kstatic: float = 0.001,
     power_static: float = 2
 ):
-    center = convert_2d_gaze_position_to_1d_vision_square_position(
-                    (
-                        vision_square_count[0] * vision_square_size[0] // 2,
-                        vision_square_count[1] * vision_square_size[1] // 2
-                    ),
-                    vision_square_count= vision_square_count,
-                    screen_size=screen_size,
-        )
+    """Static oculomotor effort of holding the eye at `position`, growing with
+    the eccentricity (in visual degrees) from the screen center.
 
-    distance = calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
-        prev_position=center,
-        next_position=position,
+    `vision_square_size` and `visual_degrees_per_pixel` must refer to the same
+    pixel grid as `screen_size`."""
+    x, y = convert_1d_vision_square_position_to_2d_center(
+        vision_square_position=position,
         vision_square_count=vision_square_count,
         vision_square_size=vision_square_size,
         screen_size=screen_size,
-        visual_degrees_per_pixel=visual_degrees_per_pixel
     )
-
-    eccentricity_deg = np.linalg.norm(distance)
+    offset = np.array([x - screen_size[0] / 2, y - screen_size[1] / 2])
+    eccentricity_deg = np.sqrt(np.sum(np.square(offset * visual_degrees_per_pixel)))
 
     return kstatic * (eccentricity_deg ** power_static)
 
