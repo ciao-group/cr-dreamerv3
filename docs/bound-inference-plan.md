@@ -132,7 +132,50 @@ Decision rules:
   finer gaze action resolution, and visual short-term memory decay with time
   (not steps).
 
-## 7. Risks and open questions
+## 7. Running the pipeline
+
+All scripts live in `scripts/bound_inference/` and share `common.sh`, which
+keeps the agent flags of training and analysis identical. Override `GAME`,
+`MEM_NOISE`, `MEM_DECAY`, `REPO_DIR` via the environment.
+
+```bash
+GAME=asterix bash scripts/bound_inference/fetch_atari_head.sh   # once per game
+sbatch scripts/bound_inference/1_train_amortized.sh              # phase 1, seeds 0-2
+sbatch scripts/bound_inference/2_recovery.sh                     # phase 2
+sbatch scripts/bound_inference/3_infer.sh                        # phase 3 -> infer_train/inference.json
+bash   scripts/bound_inference/4_memory_sweep.sh                 # phase 4 (then 3 + 5 per model)
+sbatch scripts/bound_inference/5_eval_human_likeness.sh          # phase 5
+SUBJECT=RZ sbatch scripts/bound_inference/5_eval_human_likeness.sh
+```
+
+Outputs: `inference.json` (all candidates, log-likelihoods per trial, best θ
+overall / per subject / per trial, replay comparison against default bounds),
+`recovery.json` (true vs. inferred θ, correlation and MAE per bound),
+`human_likeness.json` (distributional, saliency, pause and score metrics).
+
+`scripts/bound_inference/smoke_local.sh` runs all phases on a laptop CPU with a
+tiny model in a few minutes (plumbing check only).
+
+## 8. Bugs found while parametrising the bounds
+
+These were fixed before any new training; runs trained before the fixes are
+not comparable to new runs.
+
+* **EMMA post-saccadic encoding** used `k` (0.4) instead of `K` (0.006): a
+  one-cell gaze shift took ~0.96 s instead of ~0.24 s, making eye movements
+  far too expensive (human median fixation in Asterix: ~114 ms).
+* **Gaze geometry**: cell centres on the 160×210 screen were converted to
+  degrees with the degrees per pixel of the 96×96 observation (saccade
+  amplitudes ×1.7 in x, ×2.2 in y); effort was measured from cell 1 instead
+  of the screen centre.
+* **Peripheral blur** also blurred across RGB channels.
+* **Avatar distance logs** wrapped around because RAM positions are `uint8`.
+* The first observation of each episode was foveated twice (mostly black).
+* `eval_gaze.py` still calls `convert_1d_vision_square_position_to_2d_center`
+  without `screen_size` and resizes with OpenCV instead of the env's Pillow
+  pipeline; it is superseded by `infer_bounds` / `eval_human_likeness`.
+
+## 9. Risks and open questions
 
 * **Frame/step alignment**: one Atari-HEAD frame is treated as one ALE frame at
   20 Hz (the env's `TIME_PER_FRAME = 0.05`). Replay stride = env `repeat`.
