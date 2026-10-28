@@ -315,8 +315,9 @@ def calc_EMMA_time(dist: float, freq = 0.1, execution_time = 0.07, K=0.006, k=0.
     if t_enc <= t_sacc:
         return (t_prep, t_exec, 0), t_sacc, True
 
-    # if encoding left after movement time
-    e_new = (k * -np.log(freq))
+    # if encoding left after movement time, it continues at the new fixation
+    # (eccentricity ~0, so exp(k * 0) = 1), see Salvucci (2001)
+    e_new = (K * -np.log(freq))
     t_enc_new = (1 - (t_sacc / t_enc)) * e_new
 
     return (t_prep, t_exec, t_enc_new), t_sacc + t_enc_new, True
