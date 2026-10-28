@@ -40,6 +40,21 @@ defaults:
   evaluation:
     apply_vision_square_from: human
 
+  inference:
+    data: data/Atari-HEAD/asterix_raw/asterix
+    split: train
+    trials: ''
+    subject: ''
+    max_steps: 0
+    candidates: 128
+    rounds: 3
+    elite: 0.1
+    seed: 0
+    recovery_thetas: 8
+    recovery_steps: 2000
+    theta_file: ''
+    eval_steps: 20000
+
   replay:
     size: 5e6
     online: True
