@@ -95,6 +95,8 @@ class CrAtari(Atari):
         self._pauses = 0
         self._paused = False
         self._step_time = 0.0
+        # Unfoveated copies of the pooled screens, to replay recorded episodes.
+        self.raw_buffers = [np.zeros_like(b) for b in self.buffers]
 
     @property
     def obs_space(self):
@@ -158,6 +160,11 @@ class CrAtari(Atari):
     def avatar_is_observed_scaled(self) -> bool:
         if self.prev_gaze_position:
             return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H, screen_size=(self.W, self.H))
+
+    def _render(self, reset=False):
+        super()._render(reset)
+        self.raw_buffers.insert(0, self.raw_buffers.pop())
+        np.copyto(self.raw_buffers[0], self.buffers[0])
 
     def foveate(self, image: np.ndarray, gaze_position: int) -> np.ndarray:
         return vision.apply_vision_square(
@@ -317,7 +324,8 @@ class CrAtari(Atari):
         self.passed_time += self._step_time
         screen = np.zeros_like(self.buffers[0])
         self.ale.getScreenRGB(screen)
-        for buffer in self.buffers:
+        for buffer, raw in zip(self.buffers, self.raw_buffers):
+            np.copyto(raw, screen)
             np.copyto(buffer, self.foveate(screen, gaze_position))
         self.prev_gaze_position = gaze_position
         self._game_score = 0.0
@@ -350,6 +358,7 @@ class CrAtari(Atari):
         for i, dst in enumerate(self.buffers):
             if i > 0:
                 np.copyto(dst, self.buffers[0])
+                np.copyto(self.raw_buffers[i], self.raw_buffers[0])
 
     def center_gaze_position(self) -> int:
         return vision.convert_2d_gaze_position_to_1d_vision_square_position(

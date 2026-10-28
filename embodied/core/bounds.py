@@ -55,6 +55,7 @@ class Bounds:
     self.names = tuple(k for k in SPECS if k in sample)
     self.rng = np.random.default_rng(seed)
     self.current = dict(self.fixed)
+    self.frozen = False
 
   @classmethod
   def from_config(cls, values, sample, seed=None):
@@ -73,6 +74,8 @@ class Bounds:
 
   def resample(self):
     self.current = dict(self.fixed)
+    if self.frozen:
+      return self.current
     for name in self.names:
       u = self.rng.uniform()
       self.current[name] = denormalize_value(name, u)
@@ -83,6 +86,15 @@ class Bounds:
     for k, v in values.items():
       assert k in SPECS, k
       self.current[k] = float(v)
+
+  def freeze(self, **values):
+    """Keep the given values for all future episodes (no resampling), while
+    still exposing the sampled bounds to the agent."""
+    for k, v in values.items():
+      assert k in SPECS, k
+      self.fixed[k] = float(v)
+    self.current = dict(self.fixed)
+    self.frozen = True
 
   def vector(self) -> np.ndarray:
     """Current values of the sampled bounds, normalised to [0, 1]."""
