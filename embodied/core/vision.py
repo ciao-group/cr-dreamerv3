@@ -95,7 +95,9 @@ def distance_to_vision_square_deltas(
     v_y_max = y_center + vision_square_size[1] // 2
 
     # 3. Unpack and calculate the boundaries of the target bounding box
-    b_x, b_y, b_w, b_h = bbox_to_check
+    # Cast to Python ints: positions read from the RAM are uint8 and would
+    # wrap around when subtracted.
+    b_x, b_y, b_w, b_h = (int(v) for v in bbox_to_check)
 
 
     # Top-left corner (b_x, b_y) represents the minimum x and y values
@@ -352,7 +354,8 @@ def calc_EMMA_time_from_1d_vision_square_positions(
     vision_square_count: tuple[int, int],
     vision_square_size: tuple[int, int],
     screen_size: tuple[int, int],
-    visual_degrees_per_pixel: np.ndarray
+    visual_degrees_per_pixel: np.ndarray,
+    **emma_kw,
 ):
     if prev_position is None or prev_position == next_position:
         return 0
@@ -366,7 +369,7 @@ def calc_EMMA_time_from_1d_vision_square_positions(
                 visual_degrees_per_pixel=visual_degrees_per_pixel
             )
 
-    _, total_time, _ = calc_EMMA_time(distance)
+    _, total_time, _ = calc_EMMA_time(distance, **emma_kw)
     return total_time
 
 def sample_saccadic_latencies(
