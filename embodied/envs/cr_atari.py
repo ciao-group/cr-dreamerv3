@@ -2,9 +2,19 @@ import elements
 import numpy as np
 
 import embodied.core.vision as vision
+from embodied.core.bounds import Bounds
 from embodied.envs.atari import Atari
 
 class CrAtari(Atari):
+    """Atari with human bounds: foveated vision, EMMA saccade timing, eye
+    effort, motor and reaction delays, and optional pausing as in the
+    semi-frame-by-frame mode of Atari-HEAD.
+
+    The numeric bound parameters live in `bounds` (see embodied.core.bounds).
+    Bounds named in `bounds_sample` are resampled at every episode start and
+    exposed to the agent as the observation `bounds`.
+    """
+
     def __init__(
         self,
         name,
@@ -29,6 +39,10 @@ class CrAtari(Atari):
         motor_action_delay: bool = False,
         reaction_time_delay: bool = False,
         eye_movement_effort: bool = False,
+        bounds: dict | None = None,
+        bounds_sample: str = "",
+        pause: bool = False,
+        max_pauses: int = 10,
     ):
         super().__init__(
             name,
@@ -55,6 +69,7 @@ class CrAtari(Atari):
         self.vision_square_count = vision_square_count if vision_square_count is not None else vision.calc_vision_square_count(
             self.size, self.vision_square_size
         )
+
         self.H, self.W = self.ale.getScreenDims()
 
         assert self.vision_square_count[0] * self.vision_square_size[0] >= self.size[0], f"vision_square_count {vision_square_count[0]} does not match dimensions self.vision_square_size: {self.vision_square_size[0]}, H: {self.H}, W: {self.W}"
@@ -74,10 +89,16 @@ class CrAtari(Atari):
         self.reaction_time_delay = reaction_time_delay
         self._game_score = 0
         self._eye_movement_effort = eye_movement_effort
+        self.bounds = Bounds.from_config(dict(bounds or {}), bounds_sample, seed)
+        self.pause = pause
+        self.max_pauses = max_pauses
+        self._pauses = 0
+        self._paused = False
+        self._step_time = 0.0
 
     @property
     def obs_space(self):
-        return {
+        spaces = {
             'image': elements.Space(np.uint8, (*self.size, 1 if self.gray else 3)),
             'reward': elements.Space(np.float32),
             'is_first': elements.Space(bool),
@@ -93,15 +114,22 @@ class CrAtari(Atari):
             'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
             'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
             'log/game_score': elements.Space(np.float32),
+            'log/gaze_position': elements.Space(np.int32),
+            'log/paused': elements.Space(bool),
+            'log/step_time': elements.Space(np.float32),
         }
+        if self.bounds.names:
+            spaces['bounds'] = elements.Space(
+                np.float32, (len(self.bounds.names),), 0.0, 1.0)
+            for name in self.bounds.names:
+                spaces[f'log/bound_{name}'] = elements.Space(np.float32)
+        return spaces
 
     @property
     def act_space(self):
-
-        return {
+        spaces = {
             "action": elements.Space(np.int32, (), 0, len(self.actionset)),
             "reset": elements.Space(bool),
-            # "pause": elements.Space(np.int32, (), 0, 2),  # 1 to pause
             "gaze_position": elements.Space(
                 np.int32,
                 (),
@@ -109,6 +137,9 @@ class CrAtari(Atari):
                 self.vision_square_count[0] * self.vision_square_count[1],
             ),
         }
+        if self.pause:
+            spaces["pause"] = elements.Space(np.int32, (), 0, 2)
+        return spaces
 
     def distance_avatar_vision_square_scaled(self) -> float:
         return vision.distance_to_vision_square_scaled(gaze_position=self.prev_gaze_position,
@@ -128,38 +159,41 @@ class CrAtari(Atari):
         if self.prev_gaze_position:
             return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H, screen_size=(self.W, self.H))
 
+    def foveate(self, image: np.ndarray, gaze_position: int) -> np.ndarray:
+        return vision.apply_vision_square(
+            gaze_position=gaze_position,
+            image=image,
+            mode=self.vision_mode,
+            vision_square_count=self.vision_square_count,
+            vision_square_size=self.scaled_vision_square_size,
+            screen_size=(self.W, self.H),
+            periphery_sigma=self.bounds["periphery_sigma"],
+        )
+
     def step(self, action):
-
-        # TODO implement pause
-        # if action["pause"] == 1:
-        #     pass
         gaze_position = action["gaze_position"]
-
+        wants_pause = self.pause and bool(action.get("pause", 0))
 
         action = {"action": action["action"], "reset": action["reset"]}
 
         if action['reset'] or self.done:
-
+            # Fovea starts at the screen center, see _reset().
+            self.bounds.resample()
             self._reset()
-            self.buffers[0] = vision.apply_vision_square(
-                            gaze_position=gaze_position,
-                            image=self.buffers[0],
-                            mode=self.vision_mode,
-                            vision_square_count=self.vision_square_count,
-                            vision_square_size=self.scaled_vision_square_size,
-                            screen_size=(self.W, self.H),
-                        )
-
             self.prevlives = self.ale.lives()
             self.duration = 0
             self.passed_time = 0
             self.done = False
+            self._pauses = 0
+            self._paused = False
+            self._step_time = 0.0
+            self._game_score = 0
             return self._obs(0.0, is_first=True)
 
         all_delay_times = {"default": 0.0}
+        emma_time = 0.0
         emma_frames = 0
         effort_penalty = 0
-        print(f"Vision_model: {self.vision_model}")
         if self.vision_model == "EMMA":
             emma_time = vision.calc_EMMA_time_from_1d_vision_square_positions(
                 prev_position=self.prev_gaze_position,
@@ -167,23 +201,37 @@ class CrAtari(Atari):
                 vision_square_count=self.vision_square_count,
                 vision_square_size=self.scaled_vision_square_size,
                 screen_size=(self.W, self.H),
-                visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL
+                visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL,
+                K=self.bounds["emma_K"],
+                k=self.bounds["emma_k"],
+                t_prep=self.bounds["emma_t_prep"],
             )
             emma_frames = emma_time // self.TIME_PER_FRAME
             all_delay_times["EMMA"] = emma_time
 
-            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
-            print(f"Effort Penalty: {effort_penalty}")
+            effort_penalty = vision.calc_effort(
+                position=gaze_position,
+                vision_square_count=self.vision_square_count,
+                vision_square_size=self.scaled_vision_square_size,
+                screen_size=(self.W, self.H),
+                visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL,
+                kstatic=self.bounds["effort_k"],
+            )
+
+        if wants_pause and self._pauses < self.max_pauses:
+            return self._pause_step(gaze_position, emma_time, effort_penalty)
+        self._pauses = 0
+        self._paused = False
 
         motor_action_frames = 0
         if self.motor_action_delay:
-            motor_action_time = np.round(np.random.normal(70, 12.8398, None) / 1000, 2)
+            motor_action_time = np.round(np.random.normal(1000 * self.bounds["motor_delay"], 12.8398, None) / 1000, 2)
             total_delay_time = motor_action_time
 
             if self.reaction_time_delay:
                 # Calculate reaction time based on a reciprocal normal distribution (LATER model).
                 # Mean rate of 5.0 corresponds to ~200ms peak latency.
-                reciprocal_rate = np.random.normal(loc=5.0, scale=0.8)
+                reciprocal_rate = np.random.normal(loc=self.bounds["reaction_rate"], scale=0.8)
 
                 # Clip the rate to avoid division by zero or negative values.
                 # A minimum rate of 0.5 caps the maximum latency at 2.0 seconds.
@@ -212,24 +260,22 @@ class CrAtari(Atari):
         assert 0 <= action['action'] < len(self.actionset), action['action']
         act = self.actionset[action['action']]
         no_act = self.ACTION_MEANING.index('NOOP')
+        frames = 0
         for repeat in range(repeating):
 
             if (motor_action_frames <= repeat < self.repeat + motor_action_frames):
                 reward += self.ale.act(act)
             else:
                 reward += self.ale.act(no_act)
+            frames += 1
             self.duration += 1
             self.passed_time += self.TIME_PER_FRAME
             if repeat >= repeating - self.pooling:
                 self._render()
-                self.buffers[0] = vision.apply_vision_square(
-                    gaze_position=gaze_position if repeat >= (emma_frames - 1) or self.prev_gaze_position is None else self.prev_gaze_position,
-                            image=self.buffers[0],
-                            mode=self.vision_mode,
-                            vision_square_count=self.vision_square_count,
-                            vision_square_size=self.scaled_vision_square_size,
-                            screen_size=(self.W, self.H),
-                        )
+                self.buffers[0] = self.foveate(
+                    self.buffers[0],
+                    gaze_position if repeat >= (emma_frames - 1) or self.prev_gaze_position is None else self.prev_gaze_position,
+                )
 
             if self.ale.game_over():
                 terminal = True
@@ -246,18 +292,39 @@ class CrAtari(Atari):
             if terminal or last:
                 break
         self.done = last
-        # TODO: Does swapping these two lines breaks anything?
-        # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
 
         # save for logging raw ALE reward
         self._game_score = reward
+        self._step_time = frames * self.TIME_PER_FRAME
 
         # apply effort
         if self._eye_movement_effort:
             reward -= effort_penalty
+        reward -= self.bounds["time_cost"] * self._step_time
         obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
+
+    def _pause_step(self, gaze_position, emma_time, effort_penalty):
+        """The game stays frozen while the eyes move to `gaze_position`.
+
+        The step lasts as long as the gaze shift (at least one frame) and
+        costs real time, like pausing in Atari-HEAD.
+        """
+        self._pauses += 1
+        self._paused = True
+        self._step_time = max(float(emma_time), self.TIME_PER_FRAME)
+        self.passed_time += self._step_time
+        screen = np.zeros_like(self.buffers[0])
+        self.ale.getScreenRGB(screen)
+        for buffer in self.buffers:
+            np.copyto(buffer, self.foveate(screen, gaze_position))
+        self.prev_gaze_position = gaze_position
+        self._game_score = 0.0
+        reward = -self.bounds["time_cost"] * self._step_time
+        if self._eye_movement_effort:
+            reward -= effort_penalty
+        return self._obs(reward)
 
     def _reset(self):
         with self.LOCK:
@@ -277,7 +344,15 @@ class CrAtari(Atari):
                 with self.LOCK:
                     self.ale.reset_game()
         self._render()
-        initial_gaze_position = vision.convert_2d_gaze_position_to_1d_vision_square_position(
+        initial_gaze_position = self.center_gaze_position()
+        self.buffers[0] = self.foveate(self.buffers[0], initial_gaze_position)
+        self.prev_gaze_position = initial_gaze_position
+        for i, dst in enumerate(self.buffers):
+            if i > 0:
+                np.copyto(dst, self.buffers[0])
+
+    def center_gaze_position(self) -> int:
+        return vision.convert_2d_gaze_position_to_1d_vision_square_position(
                     (
                         self.vision_square_count[0] * self.vision_square_size[0] // 2,
                         self.vision_square_count[1] * self.vision_square_size[1] // 2
@@ -285,18 +360,6 @@ class CrAtari(Atari):
                     vision_square_count= self.vision_square_count,
                     screen_size=self.size,
         )
-        self.buffers[0] = vision.apply_vision_square(
-            gaze_position=initial_gaze_position,
-            image=self.buffers[0],
-            mode=self.vision_mode,
-            vision_square_count=self.vision_square_count,
-            vision_square_size=self.scaled_vision_square_size,
-            screen_size=(self.W, self.H),
-        )
-        self.prev_gaze_position = initial_gaze_position
-        for i, dst in enumerate(self.buffers):
-            if i > 0:
-                np.copyto(dst, self.buffers[0])
 
     def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
         character_x_raw = self.character_position[0]
@@ -314,5 +377,12 @@ class CrAtari(Atari):
         obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
         obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
         obs["log/game_score"] = self._game_score
+        obs["log/gaze_position"] = np.int32(self.prev_gaze_position)
+        obs["log/paused"] = self._paused
+        obs["log/step_time"] = np.float32(self._step_time)
+        if self.bounds.names:
+            obs["bounds"] = self.bounds.vector()
+            for name in self.bounds.names:
+                obs[f"log/bound_{name}"] = np.float32(self.bounds[name])
 
         return obs
