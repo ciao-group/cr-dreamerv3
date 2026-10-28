@@ -30,6 +30,10 @@ class RSSM(nj.Module):
   absolute: bool = False
   blocks: int = 8
   free_nats: float = 1.0
+  # Human memory bounds on the recurrent state: per-step leak towards zero
+  # (forgetting) and additive Gaussian noise (limited precision).
+  mem_decay: float = 0.0
+  mem_noise: float = 0.0
 
   def __init__(self, act_space, **kw):
     assert self.deter % self.blocks == 0
@@ -156,6 +160,14 @@ class RSSM(nj.Module):
     cand = jnp.tanh(reset * cand)
     update = jax.nn.sigmoid(update - 1)
     deter = update * cand + (1 - update) * deter
+    return self._memory_bounds(deter)
+
+  def _memory_bounds(self, deter):
+    if self.mem_decay:
+      deter = (1 - self.mem_decay) * deter
+    if self.mem_noise:
+      noise = jax.random.normal(nj.seed(), deter.shape, f32)
+      deter = deter + (self.mem_noise * noise).astype(deter.dtype)
     return deter
 
   def _prior(self, feat):
