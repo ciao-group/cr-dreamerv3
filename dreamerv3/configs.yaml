@@ -182,6 +182,17 @@ cr-atari:
   task: cr-atari_asterix
   run: {steps: 5.1e7, train_ratio: 32}
 
+# Bound-conditioned (amortised) CR agent for inferring bounds from
+# Atari-HEAD. Use together with the cr-atari config.
+cr-atari-amortized:
+  env.cr-atari.repeat: 1
+  env.cr-atari.vision_model: EMMA
+  env.cr-atari.eye_movement_effort: True
+  env.cr-atari.motor_action_delay: True
+  env.cr-atari.reaction_time_delay: True
+  env.cr-atari.pause: True
+  env.cr-atari.bounds_sample: emma_K,emma_k,emma_t_prep,effort_k,motor_delay,reaction_rate,time_cost
+
 atari:
   task: atari_pong
   run: {steps: 5.1e7, train_ratio: 32}
