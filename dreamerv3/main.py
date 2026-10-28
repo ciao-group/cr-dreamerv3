@@ -131,6 +131,14 @@ def main(argv=None):
           bind(make_logger, config),
           args)
 
+  elif config.script in (
+      'infer_bounds', 'bound_recovery', 'eval_human_likeness'):
+    getattr(embodied.run, config.script)(
+        bind(make_agent, config),
+        bind(make_env, config),
+        bind(make_logger, config),
+        config)
+
   elif config.script == 'test':
 
       import matplotlib.pyplot as plt
