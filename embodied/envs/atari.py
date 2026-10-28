@@ -219,21 +219,8 @@ class Atari(embodied.Env):
   def _obs(self, reward, is_first=False, is_last=False, is_terminal=False):
     if self.clip_reward:
       reward = np.sign(reward)
-    if self.aggregate == 'max':
-      image = np.amax(self.buffers, 0)
-    elif self.aggregate == 'mean':
-      image = np.mean(self.buffers, 0).astype(np.uint8)
-    if self.resize == 'opencv':
-      import cv2
-      image = cv2.resize(image, self.size, interpolation=cv2.INTER_AREA)
-    elif self.resize == 'pillow':
-      image = Image.fromarray(image)
-      image = image.resize(self.size, Image.BILINEAR)
-      image = np.array(image)
-    if self.gray:
-      # Averaging channels equally would not work. For example, a fully red
-      # object on a fully green background would average to the same color.
-      image = (image * self.WEIGHTS).sum(-1).astype(image.dtype)[:, :, None]
+    image = preprocess_image(
+        self.buffers, self.size, self.gray, self.aggregate, self.resize)
     return dict(
         image=image,
         reward=np.float32(reward),
@@ -242,3 +229,22 @@ class Atari(embodied.Env):
         is_terminal=is_last,
     )
 
+
+def preprocess_image(buffers, size, gray, aggregate='max', resize='pillow'):
+  """Pool raw RGB screens, resize them and optionally convert to gray."""
+  if aggregate == 'max':
+    image = np.amax(buffers, 0)
+  elif aggregate == 'mean':
+    image = np.mean(buffers, 0).astype(np.uint8)
+  if resize == 'opencv':
+    import cv2
+    image = cv2.resize(image, size, interpolation=cv2.INTER_AREA)
+  elif resize == 'pillow':
+    image = Image.fromarray(image)
+    image = image.resize(size, Image.BILINEAR)
+    image = np.array(image)
+  if gray:
+    # Averaging channels equally would not work. For example, a fully red
+    # object on a fully green background would average to the same color.
+    image = (image * Atari.WEIGHTS).sum(-1).astype(image.dtype)[:, :, None]
+  return image
