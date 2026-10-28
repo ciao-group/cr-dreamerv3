@@ -153,6 +153,10 @@ class Agent(embodied.Agent):
         nj.pure(self.model.policy), self.policy_mesh,
         (pp, pm, ps, ps), (ps, ps, ps), ar,
         static_argnums=(4,), **shared_kwargs)
+    if hasattr(self.model, 'score'):
+      self._score = transform.apply(
+          nj.pure(self.model.score), self.policy_mesh,
+          (pp, pm, ps, ps, ps), (ps, ps), ar, **shared_kwargs)
 
     self.policy_lock = threading.Lock()
     self.train_lock = threading.Lock()
@@ -259,6 +263,26 @@ class Agent(embodied.Agent):
         assert np.isfinite(acts[key]).all(), (acts[key], key, space)
 
     return carry, acts, outs
+
+  def score(self, carry, obs, act):
+    """Log-likelihoods of the given actions under the policy (teacher
+    forcing). Returns the new carry and per-key `logp/` and `logps/`."""
+    if not self.jaxcfg.enable_policy:
+      raise Exception('Policy not available when enable_policy=False')
+    assert sorted(obs.keys()) == sorted(self.obs_space.keys()), (
+        sorted(obs.keys()), sorted(self.obs_space.keys()))
+    with self.policy_lock:
+      obs = internal.device_put(obs, self.policy_sharded)
+      act = internal.device_put(act, self.policy_sharded)
+      with self.n_actions.lock:
+        counter = self.n_actions.value
+        self.n_actions.value += 1
+      seed = self._seeds(counter, self.policy_mirrored)
+      carry = internal.to_global(self._stack(carry), self.policy_sharded)
+      carry, outs = self._score(self.policy_params, seed, carry, obs, act)
+    outs = self._take_outs(internal.fetch_async(outs))
+    carry = self._split(internal.to_local(carry))
+    return carry, outs
 
   @elements.timer.section('jaxagent_train')
   def train(self, carry, data):

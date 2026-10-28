@@ -134,6 +134,32 @@ class Agent(embodied.jax.Agent):
           enc=enc_entry, dyn=dyn_entry, dec=dec_entry)))
     return carry, act, out
 
+  def score(self, carry, obs, act):
+    """Teacher forcing: log-likelihood of the given actions (e.g. a human's)
+    under the policy. The given actions become the previous actions of the
+    next step, so the latent state follows the given trajectory."""
+    (enc_carry, dyn_carry, dec_carry, prevact) = carry
+    kw = dict(training=False, single=True)
+    reset = obs['is_first']
+    enc_carry, _, tokens = self.enc(enc_carry, obs, reset, **kw)
+    dyn_carry, _, feat = self.dyn.observe(
+        dyn_carry, tokens, prevact, reset, **kw)
+    if dec_carry:
+      dec_carry, _, _ = self.dec(dec_carry, feat, reset, **kw)
+    policy = self.pol(self.feat2tensor(feat), bdims=1)
+    out = {}
+    for key, dist in policy.items():
+      space = self.act_space[key]
+      assert space.discrete, key
+      classes = jnp.arange(space.classes)
+      logps = jax.vmap(
+          lambda c: dist.logp(jnp.full_like(act[key], c)), out_axes=-1)(classes)
+      out[f'logp/{key}'] = dist.logp(act[key])
+      out[f'logps/{key}'] = logps
+    act = {k: act[k].astype(prevact[k].dtype) for k in prevact}
+    carry = (enc_carry, dyn_carry, dec_carry, act)
+    return carry, out
+
   def train(self, carry, data):
     carry, obs, prevact, stepid = self._apply_replay_context(carry, data)
     metrics, (carry, entries, outs, mets) = self.opt(
