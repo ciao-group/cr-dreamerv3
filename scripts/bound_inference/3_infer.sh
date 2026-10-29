@@ -15,8 +15,10 @@
 # Phase 3: infer bounds from the human training trials, then score the
 # held-out trials at the inferred bounds (SPLIT=test with a THETA_FILE is
 # phase 5). Run once per memory model to compare held-out likelihoods.
-SPLIT=${SPLIT:-train}
-source "${REPO_DIR:-$HOME/cr-dreamerv3}/scripts/bound_inference/common.sh"
+#   sbatch 3_infer.sh [--split test] [--mem-noise 0.1] [--subject RZ]
+DEFAULT_SPLIT=train
+REPO_DIR=$HOME/cr-dreamerv3
+source "${REPO_DIR}/scripts/bound_inference/common.sh" "$@"
 
 python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --script infer_bounds \
@@ -24,5 +26,6 @@ python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --run.from_checkpoint "$(latest_checkpoint)" \
   --jax.policy_devices 0 --jax.train_devices 0 \
   --inference.split "${SPLIT}" \
+  --inference.subject "${SUBJECT}" \
   --inference.candidates 256 \
   --inference.rounds 3

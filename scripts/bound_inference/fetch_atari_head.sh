@@ -1,11 +1,10 @@
 #!/bin/bash
 # Download and unpack one game of Atari-HEAD (Zenodo record 3451402).
-# Usage: GAME=asterix bash fetch_atari_head.sh
+# Usage: bash fetch_atari_head.sh [GAME] [WORKSPACE_DIR]
 set -euo pipefail
-GAME=${GAME:-asterix}
-WORKSPACE_DIR=${WORKSPACE_DIR:-$(command -v ws_find > /dev/null && ws_find DreamerSpace)}
-: "${WORKSPACE_DIR:?Set WORKSPACE_DIR to a directory for data, logs and checkpoints}"
-DEST=${WORKSPACE_DIR}/Atari-HEAD
+GAME=${1:-asterix}
+WORKSPACE=${2:-/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs}
+DEST=${WORKSPACE}/Atari-HEAD
 mkdir -p "${DEST}"
 cd "${DEST}"
 curl -fL -o "${GAME}.zip" "https://zenodo.org/records/3451402/files/${GAME}.zip"

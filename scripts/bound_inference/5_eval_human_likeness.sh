@@ -13,10 +13,14 @@
 #SBATCH --mail-user=slack:martin.lorenz2
 #SBATCH --output=%x_%j.out
 # Phase 5: closed-loop rollouts at the inferred bounds against the held-out
-# human trials. SUBJECT=RZ evaluates that subject's bounds.
-SUBJECT=${SUBJECT:-}
-source "${REPO_DIR:-$HOME/cr-dreamerv3}/scripts/bound_inference/common.sh"
-THETA_FILE=${THETA_FILE:-${RUN_DIR}/infer_train/inference.json}
+# human trials.
+#   sbatch 5_eval_human_likeness.sh [--subject RZ] [--theta-file PATH]
+DEFAULT_SPLIT=test
+REPO_DIR=$HOME/cr-dreamerv3
+source "${REPO_DIR}/scripts/bound_inference/common.sh" "$@"
+if [ -z "${THETA_FILE}" ]; then
+  THETA_FILE=${RUN_DIR}/infer_train/inference.json
+fi
 
 python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --script eval_human_likeness \
@@ -25,5 +29,5 @@ python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --jax.policy_devices 0 --jax.train_devices 0 \
   --inference.theta_file "${THETA_FILE}" \
   --inference.subject "${SUBJECT}" \
-  --inference.split test \
+  --inference.split "${SPLIT}" \
   --inference.eval_steps 20000

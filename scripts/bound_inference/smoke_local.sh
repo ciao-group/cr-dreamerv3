@@ -5,9 +5,10 @@
 # Expects Atari-HEAD asterix in data/Atari-HEAD/asterix_raw/asterix.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-PY=${PY:-python}
-OUT=${OUT:-data/smoke}
-DATA=${DATA:-data/Atari-HEAD/asterix_raw/asterix}
+# Usage: bash smoke_local.sh [PYTHON] [OUTDIR] [ATARI_HEAD_GAME_DIR]
+PY=${1:-python}
+OUT=${2:-data/smoke}
+DATA=${3:-data/Atari-HEAD/asterix_raw/asterix}
 FLAGS=(
   --configs cr-atari cr-atari-amortized debug --task cr-atari_asterix
   --jax.debug False --env.cr-atari.vision_square_size 24,24

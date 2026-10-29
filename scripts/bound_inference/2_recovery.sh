@@ -13,7 +13,8 @@
 #SBATCH --mail-user=slack:martin.lorenz2
 #SBATCH --output=%x_%j.out
 # Phase 2: parameter recovery on agent data with known bounds.
-source "${REPO_DIR:-$HOME/cr-dreamerv3}/scripts/bound_inference/common.sh"
+REPO_DIR=$HOME/cr-dreamerv3
+source "${REPO_DIR}/scripts/bound_inference/common.sh" "$@"
 
 python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --script bound_recovery \

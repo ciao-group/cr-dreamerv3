@@ -1,30 +1,47 @@
 #!/bin/bash
 # Shared settings for the bound inference pipeline (see
-# docs/bound-inference-plan.md). Source this file; override via environment:
-#   GAME (asterix), MEM_NOISE (0.0), MEM_DECAY (0.0), SEED (0)
+# docs/bound-inference-plan.md). Sourced by the phase scripts, which pass
+# their command line arguments on. No environment variables are read.
+#
+#   --game NAME        Atari game (asterix)
+#   --mem-noise X      RSSM memory noise of the model (0.0)
+#   --mem-decay X      RSSM memory decay of the model (0.0)
+#   --seed N           seed (array task id for training, else 0)
+#   --split S          human trials: train, test or all (phase specific)
+#   --subject ID       Atari-HEAD subject, e.g. RZ (all subjects)
+#   --theta-file PATH  inferred bounds for evaluation
+#   --workspace DIR    data, logs and checkpoints (project directory)
+#   --conda-env NAME   conda environment (cr-dreamer_env)
 
-GAME=${GAME:-asterix}
-MEM_NOISE=${MEM_NOISE:-0.0}
-MEM_DECAY=${MEM_DECAY:-0.0}
-SEED=${SEED:-0}
+GAME=asterix
+MEM_NOISE=0.0
+MEM_DECAY=0.0
+SEED=${SLURM_ARRAY_TASK_ID:-0}
+SPLIT=${DEFAULT_SPLIT:-train}
+SUBJECT=
+THETA_FILE=
+# Checkpoints include the replay buffer (tens of GB per run), so this must be
+# project or scratch storage rather than the home directory.
+WORKSPACE_DIR=/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs
+CONDA_ENV=cr-dreamer_env
 
-# Checkpoints include the replay buffer (tens of GB per run), so point
-# WORKSPACE_DIR to scratch storage rather than the home directory.
-if [ -z "${WORKSPACE_DIR:-}" ] && [ -d /sc/projects/sci-ebel/chair/Martin ]; then
-  WORKSPACE_DIR=/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs
-fi
-if [ -z "${WORKSPACE_DIR:-}" ]; then
-  if command -v ws_find > /dev/null; then
-    WORKSPACE_DIR=$(ws_find DreamerSpace)
-  else
-    echo "Set WORKSPACE_DIR to a directory for data, logs and checkpoints." >&2
-    exit 1
-  fi
-fi
-REPO_DIR=${REPO_DIR:-$HOME/cr-dreamerv3}
-CONDA_ENV=${CONDA_ENV:-cr-dreamer_env}
-DATA_DIR=${DATA_DIR:-${WORKSPACE_DIR}/Atari-HEAD/${GAME}}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --game) GAME=$2 ;;
+    --mem-noise) MEM_NOISE=$2 ;;
+    --mem-decay) MEM_DECAY=$2 ;;
+    --seed) SEED=$2 ;;
+    --split) SPLIT=$2 ;;
+    --subject) SUBJECT=$2 ;;
+    --theta-file) THETA_FILE=$2 ;;
+    --workspace) WORKSPACE_DIR=$2 ;;
+    --conda-env) CONDA_ENV=$2 ;;
+    *) echo "Unknown argument: $1" >&2; exit 1 ;;
+  esac
+  shift 2
+done
 
+DATA_DIR=${WORKSPACE_DIR}/Atari-HEAD/${GAME}
 MODEL=amortized_mn${MEM_NOISE}_md${MEM_DECAY}
 RUN_DIR=${WORKSPACE_DIR}/${GAME}/bounds/${MODEL}/seed${SEED}
 
