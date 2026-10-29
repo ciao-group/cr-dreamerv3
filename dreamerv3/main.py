@@ -143,6 +143,7 @@ def main(argv=None):
 
       import matplotlib.pyplot as plt
       import matplotlib.patches as patches
+      print(f"config: {config}")
       env = make_env(config, 0)
       print(env.act_space)
       print(env.obs_space)
@@ -159,7 +160,8 @@ def main(argv=None):
 
       for i in range(16):
         print(f"\n-----------")
-        action["gaze_position"] = np.int32(i)
+        action["gaze_position"] = np.int32(i % 1)
+        action["action"] = np.int32((i % 4) +1)
 
         obs = env.step(action)
 
