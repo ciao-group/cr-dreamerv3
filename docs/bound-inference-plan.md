@@ -135,25 +135,29 @@ Decision rules:
 ## 7. Running the pipeline
 
 All scripts live in `scripts/bound_inference/` and share `common.sh`, which
-keeps the agent flags of training and analysis identical. Override `GAME`,
-`MEM_NOISE`, `MEM_DECAY`, `REPO_DIR` via the environment and always export
-`WORKSPACE_DIR` (data, logs, checkpoints; checkpoints contain the replay
-buffer, so use scratch storage).
+keeps the agent flags of training and analysis identical. Settings are passed
+as arguments (no environment variables): `--game`, `--mem-noise`,
+`--mem-decay`, `--seed`, `--split`, `--subject`, `--theta-file`,
+`--workspace` (default `/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs`;
+checkpoints contain the replay buffer, so keep it on project storage) and
+`--conda-env` (default `cr-dreamer_env`). The repo is expected in
+`~/cr-dreamerv3`.
 
 The SLURM headers target `pot-hpi-gpu-batch` (account `sci-ebel`) with
 A100 GPUs: training uses 2 GPUs and 500 GB RAM (the replay buffer stores the
-RSSM state per step), analysis jobs 1 GPU. Training requeues itself 5 min
-before its time limit and resumes from the last checkpoint (saved every
-15 min).
+RSSM state per step), analysis jobs 1 GPU. Training requests 3-day slots,
+requeues itself 5 min before the limit (keeping its arguments) and resumes
+from the last checkpoint (saved every 15 min).
 
 ```bash
-GAME=asterix bash scripts/bound_inference/fetch_atari_head.sh   # once per game
-sbatch scripts/bound_inference/1_train_amortized.sh              # phase 1, seeds 0-2
-sbatch scripts/bound_inference/2_recovery.sh                     # phase 2
-sbatch scripts/bound_inference/3_infer.sh                        # phase 3 -> infer_train/inference.json
-bash   scripts/bound_inference/4_memory_sweep.sh                 # phase 4 (then 3 + 5 per model)
-sbatch scripts/bound_inference/5_eval_human_likeness.sh          # phase 5
-SUBJECT=RZ sbatch scripts/bound_inference/5_eval_human_likeness.sh
+bash   scripts/bound_inference/fetch_atari_head.sh asterix            # once per game, login node
+sbatch scripts/bound_inference/1_train_amortized.sh                   # phase 1, seeds 0-2
+sbatch scripts/bound_inference/2_recovery.sh                          # phase 2
+sbatch scripts/bound_inference/3_infer.sh                             # phase 3 -> infer_train/inference.json
+bash   scripts/bound_inference/4_memory_sweep.sh                      # phase 4 (then 3 + 5 per model)
+sbatch scripts/bound_inference/5_eval_human_likeness.sh               # phase 5
+sbatch scripts/bound_inference/5_eval_human_likeness.sh --subject RZ
+sbatch scripts/bound_inference/3_infer.sh --mem-noise 0.1             # analyses of a phase 4 model
 ```
 
 Outputs: `inference.json` (all candidates, log-likelihoods per trial, best θ
