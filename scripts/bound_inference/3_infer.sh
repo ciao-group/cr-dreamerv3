@@ -1,12 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=cr_bounds_infer
 #SBATCH --ntasks=1
+#SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --gpus=1
 #SBATCH --time=24:00:00
 #SBATCH --partition=pot-hpi-gpu-batch
-#SBATCH --constraint=ARCH:X86&GPU_SKU:A100
+#SBATCH --constraint="ARCH:X86&GPU_SKU:A100"
 #SBATCH --account=sci-ebel
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=slack:martin.lorenz2
@@ -15,7 +16,7 @@
 # held-out trials at the inferred bounds (SPLIT=test with a THETA_FILE is
 # phase 5). Run once per memory model to compare held-out likelihoods.
 SPLIT=${SPLIT:-train}
-source "${REPO_DIR:-$HOME/cr-dreamer/cr-dreamerv3}/scripts/bound_inference/common.sh"
+source "${REPO_DIR:-$HOME/cr-dreamerv3}/scripts/bound_inference/common.sh"
 
 python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --script infer_bounds \

@@ -10,6 +10,9 @@ SEED=${SEED:-0}
 
 # Checkpoints include the replay buffer (tens of GB per run), so point
 # WORKSPACE_DIR to scratch storage rather than the home directory.
+if [ -z "${WORKSPACE_DIR:-}" ] && [ -d /sc/projects/sci-ebel/chair/Martin ]; then
+  WORKSPACE_DIR=/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs
+fi
 if [ -z "${WORKSPACE_DIR:-}" ]; then
   if command -v ws_find > /dev/null; then
     WORKSPACE_DIR=$(ws_find DreamerSpace)
@@ -18,14 +21,18 @@ if [ -z "${WORKSPACE_DIR:-}" ]; then
     exit 1
   fi
 fi
-REPO_DIR=${REPO_DIR:-$HOME/cr-dreamer/cr-dreamerv3}
+REPO_DIR=${REPO_DIR:-$HOME/cr-dreamerv3}
+CONDA_ENV=${CONDA_ENV:-cr-dreamer_env}
 DATA_DIR=${DATA_DIR:-${WORKSPACE_DIR}/Atari-HEAD/${GAME}}
 
 MODEL=amortized_mn${MEM_NOISE}_md${MEM_DECAY}
 RUN_DIR=${WORKSPACE_DIR}/${GAME}/bounds/${MODEL}/seed${SEED}
 
 cd "${REPO_DIR}"
-if [ -f dreamerv3/bin/activate ]; then
+if command -v conda > /dev/null; then
+  eval "$(conda shell.bash hook)"
+  conda activate "${CONDA_ENV}"
+elif [ -f dreamerv3/bin/activate ]; then
   source dreamerv3/bin/activate
 fi
 
