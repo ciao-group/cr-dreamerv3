@@ -114,7 +114,7 @@ Implemented in `embodied/core/scanpath_metrics.py` (pure numpy, unit-tested).
 | Phase | Runs | Purpose | Est. compute |
 |---|---|---|---|
 | 0 Smoke | 1 CPU run, ~2k steps | pipeline end-to-end (local) | minutes |
-| 1 Amortised agent | 1 run × 3 seeds, 5e7 steps, `mem_noise=0` | π(a,g\|h,θ) over the prior | 3 × ≤7 d × 2 A100 |
+| 1 Amortised agent | 1 run × 3 seeds, 5e7 steps, `mem_noise=0` | π(a,g\|h,θ) over the prior | 3 × ≤7 d × 2 A100 (3 d slots, requeued) |
 | 2 Recovery check | infer θ on agent-generated data with known θ | identifiability per parameter; drop/fix unidentifiable ones | 1 GPU, hours |
 | 3 Inference | infer θ̂ on Atari-HEAD Asterix (trial-wise split 10/5) | θ̂ per subject, likelihood profiles | 1 GPU, hours |
 | 4 Memory comparison | amortised runs for `mem_noise` ∈ {0.05, 0.1, 0.2}, `mem_decay` ∈ {0.01, 0.05} | held-out NLL + closed-loop metrics → best memory model | 5 × 3 × ≤7 d × 2 A100 |

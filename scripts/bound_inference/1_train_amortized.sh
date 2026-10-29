@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=500G
 #SBATCH --gpus=2
-#SBATCH --time=7-00:00:00
+#SBATCH --time=3-00:00:00
 #SBATCH --partition=pot-hpi-gpu-batch
 #SBATCH --constraint=ARCH:X86&GPU_SKU:A100
 #SBATCH --account=sci-ebel
