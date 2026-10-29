@@ -9,3 +9,4 @@ MUJOCO_LOG.TXT
 data
 .zed
 .idea/
+.DS_Store
