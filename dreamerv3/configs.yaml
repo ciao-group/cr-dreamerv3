@@ -186,6 +186,7 @@ cr-atari:
 # Atari-HEAD. Use together with the cr-atari config.
 cr-atari-amortized:
   env.cr-atari.repeat: 1
+  env.cr-atari.actions: needed
   env.cr-atari.vision_model: EMMA
   env.cr-atari.eye_movement_effort: True
   env.cr-atari.motor_action_delay: True
