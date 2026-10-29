@@ -30,4 +30,5 @@ python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --inference.theta_file "${THETA_FILE}" \
   --inference.subject "${SUBJECT}" \
   --inference.split "${SPLIT}" \
-  --inference.eval_steps 20000
+  --inference.eval_steps 20000 \
+  "${EXTRA_FLAGS[@]}"

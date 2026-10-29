@@ -24,4 +24,5 @@ python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --inference.recovery_thetas 16 \
   --inference.recovery_steps 3000 \
   --inference.candidates 256 \
-  --inference.rounds 3
+  --inference.rounds 3 \
+  "${EXTRA_FLAGS[@]}"

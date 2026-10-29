@@ -27,4 +27,5 @@ run_requeueable python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --logdir "${RUN_DIR}" \
   --run.train_ratio 32 \
   --jax.policy_devices 0,1 \
-  --jax.train_devices 0,1
+  --jax.train_devices 0,1 \
+  "${EXTRA_FLAGS[@]}"

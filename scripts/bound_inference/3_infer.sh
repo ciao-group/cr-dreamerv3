@@ -28,4 +28,5 @@ python dreamerv3/main.py "${AGENT_FLAGS[@]}" \
   --inference.split "${SPLIT}" \
   --inference.subject "${SUBJECT}" \
   --inference.candidates 256 \
-  --inference.rounds 3
+  --inference.rounds 3 \
+  "${EXTRA_FLAGS[@]}"

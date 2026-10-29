@@ -12,6 +12,8 @@
 #   --theta-file PATH  inferred bounds for evaluation
 #   --workspace DIR    data, logs and checkpoints (project directory)
 #   --conda-env NAME   conda environment (cr-dreamer_env)
+#   -- FLAGS...        further flags passed on to dreamerv3/main.py last,
+#                      e.g. -- --jax.train_devices 0 --run.steps 5000
 
 GAME=asterix
 MEM_NOISE=0.0
@@ -24,9 +26,11 @@ THETA_FILE=
 # project or scratch storage rather than the home directory.
 WORKSPACE_DIR=/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs
 CONDA_ENV=cr-dreamer_env
+EXTRA_FLAGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
+    --) shift; EXTRA_FLAGS=("$@"); break ;;
     --game) GAME=$2 ;;
     --mem-noise) MEM_NOISE=$2 ;;
     --mem-decay) MEM_DECAY=$2 ;;
