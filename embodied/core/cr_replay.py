@@ -37,6 +37,24 @@ def xy_to_cell(xy, env) -> int:
   return cy * env.vision_square_count[0] + cx
 
 
+def action_index(ale_action: int, env) -> int:
+  """Map an ALE action id (as recorded in Atari-HEAD) to the index in the
+  env's action set. Actions missing from a minimal set (`actions: needed`)
+  lose their FIRE component, e.g. UPFIRE -> UP and FIRE -> NOOP. Returns -1
+  if there is no equivalent."""
+  ids = [int(a) for a in env.actionset]
+  if ale_action < 0:
+    return -1
+  if ale_action in ids:
+    return ids.index(ale_action)
+  meaning = env.ACTION_MEANING[ale_action].replace('FIRE', '') or 'NOOP'
+  if meaning in env.ACTION_MEANING:
+    fallback = env.ACTION_MEANING.index(meaning)
+    if fallback in ids:
+      return ids.index(fallback)
+  return -1
+
+
 def cell_center(cell: int, env) -> np.ndarray:
   cw, ch = env.W // env.vision_square_count[0], env.H // env.vision_square_count[1]
   cx, cy = cell % env.vision_square_count[0], cell // env.vision_square_count[0]
@@ -66,7 +84,7 @@ def human_steps(trial, env, max_steps=0, split_pauses=True):
     yield ReplayStep(
         frames=frames,
         fovea=fovea,
-        action=int(steps.action[i]),
+        action=action_index(int(steps.action[i]), env),
         gaze=xy_to_cell(steps.next_gaze_xy[i], env),
         pause=int(steps.pause[i]),
         reward=reward,

@@ -61,3 +61,22 @@ def test_fixations_from_cells(env):
   human = np.array([[10, 10, 0, 100], [12, 12, 100, 80], [150, 200, 180, 60]])
   quant = cr_replay.quantize_fixations(human, env)
   np.testing.assert_allclose(quant[:, 3], [180, 60])
+
+
+def test_action_index_for_minimal_action_set():
+  env = CrAtari(
+      'asterix', size=(96, 96), vision_square_size=(24, 24),
+      vision_square_count=(4, 4), actions='needed')
+  meanings = [env.ACTION_MEANING[int(a)] for a in env.actionset]
+  index = lambda name: cr_replay.action_index(
+      env.ACTION_MEANING.index(name), env)
+  assert meanings[index('RIGHT')] == 'RIGHT'
+  assert meanings[index('UPFIRE')] == 'UP'
+  assert meanings[index('DOWNLEFTFIRE')] == 'DOWNLEFT'
+  assert meanings[index('FIRE')] == 'NOOP'
+  assert cr_replay.action_index(-1, env) == -1
+
+
+def test_action_index_for_full_action_set(env):
+  for ale_id in range(18):
+    assert cr_replay.action_index(ale_id, env) == ale_id
