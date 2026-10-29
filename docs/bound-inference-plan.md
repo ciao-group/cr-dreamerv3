@@ -177,9 +177,9 @@ not comparable to new runs.
 
 ## 9. Risks and open questions
 
-* **Frame/step alignment**: one Atari-HEAD frame is treated as one ALE frame at
-  20 Hz (the env's `TIME_PER_FRAME = 0.05`). Replay stride = env `repeat`.
-  Must be verified against the dataset recording code.
+* **Frame/step alignment** (confirmed): Atari-HEAD was recorded at 20 Hz, so
+  one dataset frame is one ALE frame of `TIME_PER_FRAME = 0.05` s. Replay
+  stride = env `repeat` (1 in `cr-atari-amortized`).
 * **Gaze discretisation**: human gaze is continuous, agent gaze is a 4×4 grid;
   likelihood and string metrics are computed on grid cells, saliency on
   continuous coordinates (agent fixation = cell centre + uniform jitter).
