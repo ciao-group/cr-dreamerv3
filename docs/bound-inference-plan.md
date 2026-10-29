@@ -114,10 +114,10 @@ Implemented in `embodied/core/scanpath_metrics.py` (pure numpy, unit-tested).
 | Phase | Runs | Purpose | Est. compute |
 |---|---|---|---|
 | 0 Smoke | 1 CPU run, ~2k steps | pipeline end-to-end (local) | minutes |
-| 1 Amortised agent | 1 run × 3 seeds, 5e7 steps, `mem_noise=0` | π(a,g\|h,θ) over the prior | 3 × 48 h × 8 GPU |
+| 1 Amortised agent | 1 run × 3 seeds, 5e7 steps, `mem_noise=0` | π(a,g\|h,θ) over the prior | 3 × ≤7 d × 2 A100 |
 | 2 Recovery check | infer θ on agent-generated data with known θ | identifiability per parameter; drop/fix unidentifiable ones | 1 GPU, hours |
 | 3 Inference | infer θ̂ on Atari-HEAD Asterix (trial-wise split 10/5) | θ̂ per subject, likelihood profiles | 1 GPU, hours |
-| 4 Memory comparison | amortised runs for `mem_noise` ∈ {0.05, 0.1, 0.2}, `mem_decay` ∈ {0.01, 0.05} | held-out NLL + closed-loop metrics → best memory model | 5 × 48 h × 8 GPU |
+| 4 Memory comparison | amortised runs for `mem_noise` ∈ {0.05, 0.1, 0.2}, `mem_decay` ∈ {0.01, 0.05} | held-out NLL + closed-loop metrics → best memory model | 5 × 3 × ≤7 d × 2 A100 |
 | 5 Closed loop | rollouts at θ̂ (best memory model) | scanpath/timing/score human-likeness | 1 GPU, hours |
 | 6 Optional fine-tune | fixed θ̂, continue training | sharper policy at θ̂ | 1 × 24 h |
 | 7 Other games | repeat 1–5 for Seaquest, H.E.R.O. | generalisation of θ̂ across games | as above |
@@ -136,7 +136,15 @@ Decision rules:
 
 All scripts live in `scripts/bound_inference/` and share `common.sh`, which
 keeps the agent flags of training and analysis identical. Override `GAME`,
-`MEM_NOISE`, `MEM_DECAY`, `REPO_DIR` via the environment.
+`MEM_NOISE`, `MEM_DECAY`, `REPO_DIR` via the environment and always export
+`WORKSPACE_DIR` (data, logs, checkpoints; checkpoints contain the replay
+buffer, so use scratch storage).
+
+The SLURM headers target `pot-hpi-gpu-batch` (account `sci-ebel`) with
+A100 GPUs: training uses 2 GPUs and 500 GB RAM (the replay buffer stores the
+RSSM state per step), analysis jobs 1 GPU. Training requeues itself 5 min
+before its time limit and resumes from the last checkpoint (saved every
+15 min).
 
 ```bash
 GAME=asterix bash scripts/bound_inference/fetch_atari_head.sh   # once per game
