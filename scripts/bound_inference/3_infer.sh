@@ -1,11 +1,16 @@
 #!/bin/bash
+#SBATCH --job-name=cr_bounds_infer
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=128000
-#SBATCH --gpus=a30:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --gpus=1
 #SBATCH --time=24:00:00
-#SBATCH -e Offline_logs/jobfiles/log/%x.error-%j
-#SBATCH --partition=paula
+#SBATCH --partition=pot-hpi-gpu-batch
+#SBATCH --constraint=ARCH:X86&GPU_SKU:A100
+#SBATCH --account=sci-ebel
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=slack:martin.lorenz2
+#SBATCH --output=%x_%j.out
 # Phase 3: infer bounds from the human training trials, then score the
 # held-out trials at the inferred bounds (SPLIT=test with a THETA_FILE is
 # phase 5). Run once per memory model to compare held-out likelihoods.

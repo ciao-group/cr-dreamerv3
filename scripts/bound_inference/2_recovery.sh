@@ -1,11 +1,16 @@
 #!/bin/bash
+#SBATCH --job-name=cr_bounds_recovery
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
-#SBATCH --mem-per-cpu=128000
-#SBATCH --gpus=a30:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --gpus=1
 #SBATCH --time=12:00:00
-#SBATCH -e Offline_logs/jobfiles/log/%x.error-%j
-#SBATCH --partition=paula
+#SBATCH --partition=pot-hpi-gpu-batch
+#SBATCH --constraint=ARCH:X86&GPU_SKU:A100
+#SBATCH --account=sci-ebel
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=slack:martin.lorenz2
+#SBATCH --output=%x_%j.out
 # Phase 2: parameter recovery on agent data with known bounds.
 source "${REPO_DIR:-$HOME/cr-dreamer/cr-dreamerv3}/scripts/bound_inference/common.sh"
 

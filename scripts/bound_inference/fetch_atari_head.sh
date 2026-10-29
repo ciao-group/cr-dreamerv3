@@ -3,7 +3,8 @@
 # Usage: GAME=asterix bash fetch_atari_head.sh
 set -euo pipefail
 GAME=${GAME:-asterix}
-WORKSPACE_DIR=${WORKSPACE_DIR:-$(ws_find DreamerSpace)}
+WORKSPACE_DIR=${WORKSPACE_DIR:-$(command -v ws_find > /dev/null && ws_find DreamerSpace)}
+: "${WORKSPACE_DIR:?Set WORKSPACE_DIR to a directory for data, logs and checkpoints}"
 DEST=${WORKSPACE_DIR}/Atari-HEAD
 mkdir -p "${DEST}"
 cd "${DEST}"
