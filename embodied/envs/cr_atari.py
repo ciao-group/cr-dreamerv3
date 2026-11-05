@@ -170,8 +170,7 @@ class CrAtari(Atari):
             emma_frames = emma_time // self.TIME_PER_FRAME
             all_delay_times["EMMA"] = emma_time
 
-            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
-            print(f"Effort Penalty: {effort_penalty}")
+            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
 
         motor_action_frames = 0
         if self.motor_action_delay:
