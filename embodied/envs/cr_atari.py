@@ -158,7 +158,6 @@ class CrAtari(Atari):
         all_delay_times = {"default": 0.0}
         emma_frames = 0
         effort_penalty = 0
-        print(f"Vision_model: {self.vision_model}")
         if self.vision_model == "EMMA":
             emma_time = vision.calc_EMMA_time_from_1d_vision_square_positions(
                 prev_position=self.prev_gaze_position,
