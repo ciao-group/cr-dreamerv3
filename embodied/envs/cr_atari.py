@@ -213,7 +213,7 @@ class CrAtari(Atari):
         no_act = self.ACTION_MEANING.index('NOOP')
         for repeat in range(repeating):
 
-            if (motor_action_frames <= repeat < self.repeat + motor_action_frames):
+            if (motor_action_frames <= repeat):
                 reward += self.ale.act(act)
             else:
                 reward += self.ale.act(no_act)
