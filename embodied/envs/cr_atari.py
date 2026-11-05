@@ -66,7 +66,7 @@ class CrAtari(Atari):
 
         self.TIME_PER_FRAME = 0.05 # Represents 20 Hz
         VISUAL_DEGREE_SCREEN_SIZE = (44.6, 28.5) # (W,H)
-        self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array(self.size)
+        self.VISUAL_DEGREES_PER_PIXEL = np.array(VISUAL_DEGREE_SCREEN_SIZE) / np.array((self.W, self.H))
         self.passed_time = 0
         self.prev_gaze_position = None
         self.motor_action_delay = motor_action_delay
