@@ -205,6 +205,8 @@ class CrAtari(Atari):
 
         self.passed_time += max_delay_time % self.TIME_PER_FRAME
 
+        # ensure that the motor action is executed, when repeating < motor_action_frames
+        repeating = max(repeating, int(motor_action_frames) + self.repeat)
         reward = 0.0
         terminal = False
         last = False
