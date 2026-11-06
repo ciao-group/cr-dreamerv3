@@ -108,6 +108,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                     gaze_position=human_gaze_position,
                     vision_square_count=vision_square_count,
                     screen_size=size,
+                    vision_square_size=vision_square_size,
                 )
 
                 applying_gaze_position = human_gaze_position_1d
@@ -118,14 +119,7 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                     applying_gaze_position = int(last_vision_square_position)
 
                 else:
-                    initial_gaze_position = vision.convert_2d_gaze_position_to_1d_vision_square_position(
-                    (
-                        vision_square_count[0] * vision_square_size[0] // 2,
-                        vision_square_count[1] * vision_square_size[1] // 2
-                    ),
-                    vision_square_count=vision_square_count,
-                    screen_size=size,
-                    )
+                    initial_gaze_position = vision.center_vision_square_position(vision_square_count)
 
                     applying_gaze_position = initial_gaze_position
 

@@ -163,7 +163,7 @@ class CrAtari(Atari):
                 prev_position=self.prev_gaze_position,
                 next_position=gaze_position,
                 vision_square_count=self.vision_square_count,
-                vision_square_size=self.vision_square_size,
+                vision_square_size=self.scaled_vision_square_size,
                 screen_size=(self.W, self.H),
                 visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL
             )
@@ -276,14 +276,7 @@ class CrAtari(Atari):
                 with self.LOCK:
                     self.ale.reset_game()
         self._render()
-        initial_gaze_position = vision.convert_2d_gaze_position_to_1d_vision_square_position(
-                    (
-                        self.vision_square_count[0] * self.vision_square_size[0] // 2,
-                        self.vision_square_count[1] * self.vision_square_size[1] // 2
-                    ),
-                    vision_square_count= self.vision_square_count,
-                    screen_size=self.size,
-        )
+        initial_gaze_position = vision.center_vision_square_position(self.vision_square_count)
         self.buffers[0] = vision.apply_vision_square(
             gaze_position=initial_gaze_position,
             image=self.buffers[0],

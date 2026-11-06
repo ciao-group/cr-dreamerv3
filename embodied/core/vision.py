@@ -124,8 +124,12 @@ def apply_vision_square(
     vision_square_size: tuple[int, int],
     screen_size: tuple[int, int],
 ) -> np.ndarray:
-    x = gaze_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
-    y = gaze_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
+    x, y = convert_1d_vision_square_position_to_2d(
+        vision_square_position=gaze_position,
+        vision_square_count=vision_square_count,
+        screen_size=screen_size,
+        vision_square_size=vision_square_size,
+    )
 
     if mode == "foveated":
         new_image = np.zeros(image.shape, dtype=np.uint8)
@@ -179,14 +183,41 @@ def calc_vision_square_count(
     )
 
 
+def vision_square_offset(
+    index: int,
+    count: int,
+    square: int,
+    screen: int,
+) -> int:
+    """Left/top pixel of the vision square with the given column/row index.
+
+    The squares are spread evenly over the screen: the first starts at 0, the
+    last ends at `screen`, so the grid is symmetric around the screen center.
+    With `count * square == screen` the squares tile the screen; with more
+    squares they overlap."""
+    if count <= 1:
+        return (screen - square) // 2
+    return int(round(index * (screen - square) / (count - 1)))
+
+
 def convert_1d_vision_square_position_to_2d(
     vision_square_position: int,
     vision_square_count: tuple[int, int],
-    screen_size: tuple[int, int]
+    screen_size: tuple[int, int],
+    vision_square_size: tuple[int, int],
 ) -> tuple[int, int]:
-    x = vision_square_position % vision_square_count[0] * (screen_size[0] // vision_square_count[0])
-    y = vision_square_position // vision_square_count[0] * (screen_size[1] // vision_square_count[1])
+    """Top-left pixel of the vision square at the 1D position."""
+    col = vision_square_position % vision_square_count[0]
+    row = vision_square_position // vision_square_count[0]
+    x = vision_square_offset(col, vision_square_count[0], vision_square_size[0], screen_size[0])
+    y = vision_square_offset(row, vision_square_count[1], vision_square_size[1], screen_size[1])
     return x, y
+
+
+def center_vision_square_position(vision_square_count: tuple[int, int]) -> int:
+    """1D position of the middle cell (for even counts the lower right of the
+    four middle cells)."""
+    return (vision_square_count[1] // 2) * vision_square_count[0] + vision_square_count[0] // 2
 
 
 def convert_1d_vision_square_position_to_2d_center(
@@ -199,6 +230,7 @@ def convert_1d_vision_square_position_to_2d_center(
         vision_square_position=vision_square_position,
         vision_square_count=vision_square_count,
         screen_size=screen_size,
+        vision_square_size=vision_square_size,
     )
 
     return (x + vision_square_size[0] // 2, y + vision_square_size[1] // 2)
@@ -214,6 +246,7 @@ def convert_1d_vision_square_position_to_2d_random(
             vision_square_position=vision_square_position,
             vision_square_count=vision_square_count,
             screen_size=screen_size,
+            vision_square_size=vision_square_size,
         )
     x += np.round(np.random.rand() * (vision_square_size[0] - 1)).astype("int32")
     y += np.round(np.random.rand() * (vision_square_size[1] - 1)).astype("int32")
@@ -224,13 +257,19 @@ def convert_2d_gaze_position_to_1d_vision_square_position(
     gaze_position: tuple[int, int],
     vision_square_count: tuple[int, int],
     screen_size: tuple[int, int],
+    vision_square_size: tuple[int, int],
 ) -> int:
-    # Important: does not address overlapping positions
-    vision_square_position = int(
-        (gaze_position[0] // (screen_size[0] // vision_square_count[0]))
-        + (gaze_position[1] // (screen_size[1] // vision_square_count[1]) * vision_square_count[0])
-    )
-    return vision_square_position
+    """1D position of the vision square whose center is nearest to the pixel.
+
+    Squares can overlap, so a pixel may lie in two of them; the nearest center
+    decides. Columns and rows are independent, so this is done per axis."""
+    def nearest(value, count, square, screen):
+        centers = [vision_square_offset(i, count, square, screen) + square / 2 for i in range(count)]
+        return int(np.argmin([abs(value - c) for c in centers]))
+
+    col = nearest(gaze_position[0], vision_square_count[0], vision_square_size[0], screen_size[0])
+    row = nearest(gaze_position[1], vision_square_count[1], vision_square_size[1], screen_size[1])
+    return row * vision_square_count[0] + col
 
 def add_scanpath_to_image(
     x1: int | None,
