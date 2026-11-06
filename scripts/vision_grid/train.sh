@@ -33,6 +33,8 @@
 #   --vision-mode M    foveated, periphery, periphery-cutoff (foveated)
 #   --no-effort        disable the eye movement effort penalty
 #   --seed N           seed (array task id, else 0)
+#   --repo-dir DIR     checkout to run from (~/cr-dreamerv3-grid), kept apart
+#                      from ~/cr-dreamerv3 so other running jobs keep their code
 #   --workspace DIR    logs and checkpoints (project directory)
 #   --conda-env NAME   conda environment (cr-dreamer_env)
 #   --dry-run          print the command instead of running it
@@ -41,8 +43,8 @@
 # The job requeues itself before the time limit (keeping its arguments) and
 # resumes from the last checkpoint; resubmitting the same command does too.
 
-# sbatch runs a copy of this script, so the repo path is fixed.
-REPO_DIR=$HOME/cr-dreamerv3
+# sbatch runs a copy of this script, so the repo path is not taken from $0.
+REPO_DIR=$HOME/cr-dreamerv3-grid
 
 GAME=asterix
 COUNT=5,5
@@ -69,6 +71,7 @@ while [ $# -gt 0 ]; do
     --vision-model) VISION_MODEL=$2 ;;
     --vision-mode) VISION_MODE=$2 ;;
     --seed) SEED=$2 ;;
+    --repo-dir) REPO_DIR=$2 ;;
     --workspace) WORKSPACE_DIR=$2 ;;
     --conda-env) CONDA_ENV=$2 ;;
     *) echo "Unknown argument: $1" >&2; exit 1 ;;
