@@ -35,10 +35,8 @@ def eval_gaze(make_agent, make_logger, args, **kwargs):
                 vision_square_size[0] * DATASET_SCREEN_SIZE[0] // size[0],
                 vision_square_size[1] * DATASET_SCREEN_SIZE[1] // size[1]
             )
-    vision_square_count = (
-        size[0] // vision_square_size[0],
-        size[1] // vision_square_size[1],
-    )
+    vision_square_count = args["cr-atari.vision_square_count"] or vision.calc_vision_square_count(
+        size=size, vision_square_size=vision_square_size)
     vision_mode = args["cr-atari.vision_mode"]
     gray = args["cr-atari.gray"]
     aggregate = args["cr-atari.aggregate"]

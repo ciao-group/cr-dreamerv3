@@ -63,7 +63,7 @@ def eval_only(make_agent, make_env, make_logger, args):
         gaze_heatmap_image = np.zeros(size + (1,), dtype=np.int32)
         gaze_scanpath_image = np.zeros((size[0]*SCALE_GAZE_SCANPATH_IMAGE, size[1]*SCALE_GAZE_SCANPATH_IMAGE, 1), dtype=np.uint8)
         gaze_positions = result.pop("gaze_positions")
-        vision_square_count = vision.calc_vision_square_count(size=size, vision_square_size=vision_square_size)
+        vision_square_count = args["cr-atari.vision_square_count"] or vision.calc_vision_square_count(size=size, vision_square_size=vision_square_size)
         last_x = None
         last_y = None
         for i, gaze_position in enumerate(gaze_positions):
