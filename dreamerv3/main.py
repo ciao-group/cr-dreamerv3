@@ -1,7 +1,10 @@
 import importlib
 import os
 import pathlib
+import signal
 import sys
+import threading
+import traceback
 from functools import partial as bind
 
 folder = pathlib.Path(__file__).parent
@@ -16,7 +19,24 @@ import portal
 import ruamel.yaml as yaml
 
 
+def dump_threads(signum=None, frame=None):
+  """Print the stack of every thread with its Linux thread id, so that a
+  thread seen in `top -H` can be identified without ptrace (py-spy)."""
+  frames = sys._current_frames()
+  lines = [f'=== Thread dump of process {os.getpid()} ===']
+  for thread in threading.enumerate():
+    lines.append(
+        f'--- {thread.name} (tid {thread.native_id}, '
+        f'daemon {thread.daemon}) ---')
+    if thread.ident in frames:
+      lines += [x.rstrip() for x in traceback.format_stack(frames[thread.ident])]
+  lines.append('=== End of thread dump ===')
+  print('\n'.join(lines), file=sys.stderr, flush=True)
+
+
 def main(argv=None):
+  # `kill -USR2 <pid>` prints all thread stacks to the job output.
+  signal.signal(signal.SIGUSR2, dump_threads)
   from .agent import Agent
   [elements.print(line) for line in Agent.banner]
 
