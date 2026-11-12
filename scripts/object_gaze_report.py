@@ -128,16 +128,16 @@ def main():
   import matplotlib.pyplot as plt
   maps = []  # (title, image, grid shares or None)
   pixel = human_pixel_heatmap(args.game_dir, args.max_frames, args.max_score)
-  maps.append((f'Mensch, Pixel\n(15 Trials, {args.human_cut})', pixel, None))
+  maps.append((f'Human, pixels\n(15 trials, {args.human_cut})', pixel, None))
   human_grid, n = grid_mean([res / 'human' / f'play_stats_{args.human_cut}.csv'])
-  maps.append((f'Mensch, Grid\n({n} Trials, {args.human_cut})', grid_image(human_grid, grid), human_grid))
+  maps.append((f'Human, grid\n({n} trials, {args.human_cut})', grid_image(human_grid, grid), human_grid))
   seeds = sorted(glob.glob(str(res / 'agent' / '*play_stats*.csv')))
   for path in seeds:
     shares, n = grid_mean([path])
-    maps.append((f'Agent {pathlib.Path(path).stem}\n({n} Episoden)', grid_image(shares, grid), shares))
+    maps.append((f'Agent {pathlib.Path(path).stem}\n({n} episodes)', grid_image(shares, grid), shares))
   if len(seeds) > 1:
     shares, n = grid_mean(seeds)
-    maps.append((f'Agent alle Seeds\n({n} Episoden)', grid_image(shares, grid), shares))
+    maps.append((f'Agent, all seeds\n({n} episodes)', grid_image(shares, grid), shares))
 
   with open(res / 'gaze_grid.csv', 'w', newline='') as f:
     writer = csv.writer(f)
@@ -163,7 +163,7 @@ def main():
     ax.set_title(title, fontsize=9)
     ax.set_xticks([])
     ax.set_yticks([])
-  fig.suptitle('Blickzeit pro Ort\nZahlen: % der Zeit pro Grid-Quadrat; gestrichelt: Spielfeld',
+  fig.suptitle('Gaze time per location\nNumbers: % of time per grid square; dashed: playfield',
                fontsize=9)
   fig.tight_layout(rect=(0, 0, 1, 0.94))
   fig.savefig(res / 'gaze_heatmaps.png', dpi=150)
