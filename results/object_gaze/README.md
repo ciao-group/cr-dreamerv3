@@ -11,6 +11,8 @@ Stand 2026-11-12, Branch `feat/object-gaze-metrics`.
 | `human/max_frames_5000.csv` | erste 5000 Frames pro Trial | `... --max-frames 5000` |
 | `human/max_score_7000.csv`, `max_score_12000.csv` | bis Score 7000 bzw. 12000 | `... --max-score N` |
 | `human/play_stats_*.csv` | Avatar-Positionen und Blickverhalten (gleiche Schnitte) | `scripts/human_play_stats.py` |
+| `comparison.csv` | Objekt-Anteile pro Gruppe (Mensch-Schnitt, Agent-Seed, alle Seeds) und Kategorie: Mittel, SD, Min, Max, Zufall, Verhältnis, im Bild | `scripts/object_gaze_report.py` |
+| `gaze_heatmaps.png`, `gaze_grid.csv` | Blickzeit pro Ort: Menschen pixelgenau und auf dem Grid (Mittel über Trials), Agent auf dem Grid, sobald `agent/*play_stats*.csv` vorliegen | `scripts/object_gaze_report.py` |
 
 Methode: `embodied/core/object_gaze.py` (Objekt-Anteile) und `embodied/core/play_stats.py`
 (Avatar/Blick). Alles ist zeitgewichtet (Agent: Emulator-Frames à 50 ms, Mensch: duration(ms)
