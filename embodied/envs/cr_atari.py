@@ -1,6 +1,7 @@
 import elements
 import numpy as np
 
+import embodied.core.objects as objects
 import embodied.core.vision as vision
 from embodied.envs.atari import Atari
 
@@ -74,6 +75,17 @@ class CrAtari(Atari):
         self._game_score = 0
         self._eye_movement_effort = eye_movement_effort
 
+        # Vision squares on the ALE screen, indexed by gaze position, for the
+        # looked-at metrics of game objects (only for games with an object
+        # detector).
+        self._track_objects = self.name in objects.GAMES
+        self._vision_squares = [
+            (*vision.convert_1d_vision_square_position_to_2d(
+                k, self.vision_square_count, (self.W, self.H), self.scaled_vision_square_size),
+             *self.scaled_vision_square_size)
+            for k in range(self.vision_square_count[0] * self.vision_square_count[1])
+        ]
+
     @property
     def obs_space(self):
         return {
@@ -92,7 +104,43 @@ class CrAtari(Atari):
             'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
             'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
             'log/game_score': elements.Space(np.float32),
+            **self._object_log_space(),
         }
+
+    def _object_log_space(self):
+        """Per object category (player, enemy, item, reward):
+
+        looked_at: the vision square overlaps an object of the category.
+        on_screen: an object of the category is on screen at all.
+        chance: share of all vision squares that overlap one, i.e. the
+          looked_at level of a gaze drawn uniformly from the grid.
+
+        Episode /avg of looked_at is the share of steps the category was looked
+        at; looked_at/sum / on_screen/sum is that share given it was visible.
+        """
+        if not self._track_objects:
+            return {}
+        space = {}
+        for category in objects.CATEGORIES:
+            space[f'log/looked_at/{category}'] = elements.Space(bool)
+            space[f'log/on_screen/{category}'] = elements.Space(bool)
+            space[f'log/chance/{category}'] = elements.Space(np.float32)
+        return space
+
+    def _object_logs(self):
+        if not self._track_objects:
+            return {}
+        # The raw screen of the last emulated frame; self.buffers already has
+        # the vision square applied.
+        found = objects.detect(self.ale.getScreenRGB(), self.name)
+        hits = objects.square_hits(found, self._vision_squares)
+        gaze = self.prev_gaze_position
+        logs = {}
+        for category, row in hits.items():
+            logs[f'log/looked_at/{category}'] = bool(gaze is not None and row[gaze])
+            logs[f'log/on_screen/{category}'] = any(o.category == category for o in found)
+            logs[f'log/chance/{category}'] = np.float32(row.mean())
+        return logs
 
     @property
     def act_space(self):
@@ -306,5 +354,6 @@ class CrAtari(Atari):
         obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
         obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
         obs["log/game_score"] = self._game_score
+        obs.update(self._object_logs())
 
         return obs

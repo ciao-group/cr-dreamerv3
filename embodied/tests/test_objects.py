@@ -110,3 +110,41 @@ def test_player_matches_ram_position_on_ale_frames():
 
 if __name__ == '__main__':
   pytest.main([__file__, '-v'])
+
+
+def test_square_hits_per_category():
+  objs = [objects.GameObject('enemy', 10, 10, 5, 5),
+          objects.GameObject('item', 40, 40, 4, 4)]
+  squares = [(0, 0, 12, 12), (20, 0, 12, 12), (36, 36, 12, 12)]
+  hits = objects.square_hits(objs, squares)
+  assert set(hits) == set(objects.CATEGORIES)
+  assert hits['enemy'].tolist() == [True, False, False]
+  assert hits['item'].tolist() == [False, False, True]
+  assert not hits['player'].any()
+
+
+def test_cr_atari_logs_looked_at_categories():
+  pytest.importorskip('ale_py')
+  from embodied.envs.cr_atari import CrAtari
+  env = CrAtari('asterix', size=(96, 96), gray=False, vision_square_size=(24, 24),
+                vision_square_count=(5, 5), seed=0)
+  keys = [k for k in env.obs_space if k.startswith(('log/looked_at/', 'log/on_screen/', 'log/chance/'))]
+  assert len(keys) == 3 * len(objects.CATEGORIES)
+  rng = np.random.default_rng(0)
+  seen_player = looked_player = 0
+  obs = env.step({'action': 0, 'reset': True, 'gaze_position': 12})
+  for _ in range(300):
+    gaze = int(rng.integers(25))
+    obs = env.step({'action': int(rng.integers(len(env.actionset))),
+                    'reset': bool(obs['is_last']), 'gaze_position': gaze})
+    for key in keys:
+      assert key in obs, key
+    for c in objects.CATEGORIES:
+      # Looking at a category is only possible where it is on screen.
+      assert not obs[f'log/looked_at/{c}'] or obs[f'log/on_screen/{c}']
+      assert 0.0 <= obs[f'log/chance/{c}'] <= 1.0
+    seen_player += obs['log/on_screen/player']
+    looked_player += obs['log/looked_at/player']
+  assert seen_player > 200
+  # A random gaze on a 5x5 grid hits the avatar sometimes, but not always.
+  assert 0 < looked_player < seen_player

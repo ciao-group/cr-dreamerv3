@@ -127,3 +127,18 @@ def intersects(obj: GameObject, box, margin: float = 0.0) -> bool:
 def categories_in(objects, box, margin: float = 0.0) -> set[str]:
   """Categories of all objects that overlap `box`."""
   return {o.category for o in objects if intersects(o, box, margin)}
+
+
+def square_hits(objects, squares, margin: float = 0.0) -> dict[str, np.ndarray]:
+  """For every category, which of the `squares` (x, y, w, h) overlap at least
+  one object of that category, as a bool array of len(squares).
+
+  With the squares of the vision grid, entry [gaze] says whether the category
+  was looked at, and the mean over all squares is the chance level of a gaze
+  chosen uniformly from the grid."""
+  hits = {c: np.zeros(len(squares), bool) for c in CATEGORIES}
+  for obj in objects:
+    row = hits[obj.category]
+    for k, box in enumerate(squares):
+      row[k] = row[k] or intersects(obj, box, margin)
+  return hits
