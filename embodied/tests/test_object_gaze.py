@@ -48,7 +48,7 @@ def test_read_trial_drops_offscreen_and_missing_gaze(tmp_path):
       'frame_id,episode_id,score,duration(ms),unclipped_reward,action,gaze_positions\n'
       'RZ_1_1,null,null,1358,0,0,79.0,105.0,-3.0,50.0,80.0,106.0\n'
       'RZ_1_2,null,null,50,0,0,null\n')
-  ids, durations, gaze = object_gaze.read_trial(str(path))
+  ids, durations, rewards, gaze = object_gaze.read_trial(str(path))
   assert ids == ['RZ_1_1', 'RZ_1_2']
   assert durations.tolist() == [1358, 50]
   assert gaze[0].tolist() == [[79, 105], [80, 106]]
@@ -71,3 +71,20 @@ def test_trial_shares_weights_frames_by_duration(tmp_path):
   assert result['looked_at_direct/enemy'] == pytest.approx(0.75)
   assert result['on_screen/enemy'] == pytest.approx(1.0)
   assert result['frames'] == 2
+
+
+@pytest.mark.parametrize('kwargs, frames', [
+    ({}, 3), ({'max_frames': 2}, 2), ({'max_score': 50}, 2), ({'max_score': 49}, 1)])
+def test_trial_shares_cut(tmp_path, kwargs, frames):
+  from PIL import Image
+  (tmp_path / 'X_1').mkdir()
+  for i in (1, 2, 3):
+    Image.fromarray(np.zeros((210, 160, 3), np.uint8)).save(tmp_path / 'X_1' / f'X_1_{i}.png')
+  # Rewards 0, 50, 50: the score exceeds 50 in the third frame.
+  (tmp_path / 'X_1.txt').write_text(
+      'frame_id,episode_id,score,duration(ms),unclipped_reward,action,gaze_positions\n'
+      'X_1_1,null,null,50,0,0,10,30\n'
+      'X_1_2,null,null,50,50,0,10,30\n'
+      'X_1_3,null,null,50,50,0,10,30\n')
+  result = object_gaze.trial_shares(str(tmp_path), 'X_1', GRID, **kwargs)
+  assert result['game_frames'] == frames

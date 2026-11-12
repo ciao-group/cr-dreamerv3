@@ -36,6 +36,10 @@ def main():
   parser.add_argument('--square', type=int, nargs=2, default=(24, 24))
   parser.add_argument('--count', type=int, nargs=2, default=(5, 5))
   parser.add_argument('--workers', type=int, default=8)
+  parser.add_argument('--max-frames', type=int, default=0,
+                      help='cut each trial after this many game frames (0 = whole trial)')
+  parser.add_argument('--max-score', type=float, default=0,
+                      help='cut each trial before its score exceeds this (0 = no cut)')
   args = parser.parse_args()
 
   game_dir = pathlib.Path(args.game_dir)
@@ -46,11 +50,12 @@ def main():
   grid = object_gaze.Grid(tuple(args.size), tuple(args.square), tuple(args.count))
   print(f'{len(names)} trials, grid {grid.count} with squares of {grid.square_px} screen px')
 
-  run = functools.partial(object_gaze.trial_shares, str(game_dir), grid=grid, game=args.game)
+  run = functools.partial(object_gaze.trial_shares, str(game_dir), grid=grid, game=args.game,
+                          max_frames=args.max_frames, max_score=args.max_score)
   with ProcessPoolExecutor(args.workers) as ex:
     rows = list(ex.map(run, names))
 
-  keys = ['trial', 'subject', 'minutes', 'frames', 'skipped_frames'] + [
+  keys = ['trial', 'subject', 'score', 'game_frames', 'minutes', 'frames', 'skipped_frames'] + [
       f'{col}/{c}' for c in objects.CATEGORIES for col in COLUMNS]
   with open(args.out, 'w', newline='') as f:
     writer = csv.DictWriter(f, keys)
@@ -58,7 +63,10 @@ def main():
     writer.writerows(rows)
   print(f'Wrote {args.out}')
 
-  print(f'\nShare of time in % (mean ± sd over {len(rows)} trials)')
+  scores = np.array([r['score'] for r in rows])
+  game_frames = np.array([r['game_frames'] for r in rows])
+  print(f'\nScore {scores.mean():.0f} ± {scores.std():.0f}, {game_frames.mean():.0f} game frames per trial')
+  print(f'Share of time in % (mean ± sd over {len(rows)} trials)')
   print(f'{"category":9}' + ''.join(f'{col:>20}' for col in COLUMNS))
   for c in objects.CATEGORIES:
     cells = []

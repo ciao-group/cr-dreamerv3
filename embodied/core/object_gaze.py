@@ -92,9 +92,9 @@ def frame_shares(found, gaze: np.ndarray, grid: Grid, squares=None,
 
 
 def read_trial(path: str):
-  """Frame ids, durations (ms) and gaze samples (n, 2) per frame from an
-  Atari-HEAD label file; samples outside the screen are dropped."""
-  ids, durations, gaze = [], [], []
+  """Frame ids, durations (ms), rewards and gaze samples (n, 2) per frame
+  from an Atari-HEAD label file; samples outside the screen are dropped."""
+  ids, durations, rewards, gaze = [], [], [], []
   with open(path) as f:
     next(f)
     for line in f:
@@ -103,19 +103,33 @@ def read_trial(path: str):
         continue
       ids.append(parts[0])
       durations.append(float(parts[3]) if parts[3] != 'null' else np.nan)
+      rewards.append(float(parts[4]) if parts[4] != 'null' else 0.0)
       values = [v for v in parts[6:] if v != 'null']
       xy = np.array(values[:len(values) // 2 * 2], np.float64).reshape(-1, 2)
       ok = (xy[:, 0] >= 0) & (xy[:, 0] < SCREEN[0]) & (xy[:, 1] >= 0) & (xy[:, 1] < SCREEN[1])
       gaze.append(xy[ok])
-  return ids, np.array(durations), gaze
+  return ids, np.array(durations), np.array(rewards), gaze
 
 
-def trial_shares(game_dir: str, name: str, grid: Grid, game: str = 'asterix') -> dict[str, float]:
+def trial_shares(game_dir: str, name: str, grid: Grid, game: str = 'asterix',
+                 max_frames: int = 0, max_score: float = 0) -> dict[str, float]:
   """Share of time per category over one trial (one episode in Atari-HEAD
   Asterix), weighted by frame duration. Frames without valid gaze or
-  duration are left out of numerator and denominator."""
+  duration are left out of numerator and denominator.
+
+  To compare with agent episodes that end earlier, the trial can be cut
+  after `max_frames` game frames (one row per emulator frame) or before the
+  frame in which the score first exceeds `max_score` (0 = no cut)."""
   from PIL import Image
-  ids, durations, gaze = read_trial(os.path.join(game_dir, name + '.txt'))
+  ids, durations, rewards, gaze = read_trial(os.path.join(game_dir, name + '.txt'))
+  end = len(ids)
+  if max_frames:
+    end = min(end, max_frames)
+  if max_score:
+    over = np.nonzero(np.cumsum(rewards) > max_score)[0]
+    if len(over):
+      end = min(end, int(over[0]))
+  ids, durations, rewards, gaze = ids[:end], durations[:end], rewards[:end], gaze[:end]
   squares = grid.squares()
   totals, time, used = {}, 0.0, 0
   for fid, dur, g in zip(ids, durations, gaze):
@@ -130,5 +144,6 @@ def trial_shares(game_dir: str, name: str, grid: Grid, game: str = 'asterix') ->
     used += 1
   result = {key: value / time for key, value in totals.items()}
   result.update(trial=name, subject=name.split('_')[1], frames=used,
-                skipped_frames=len(ids) - used, minutes=time / 60000)
+                skipped_frames=len(ids) - used, minutes=time / 60000,
+                game_frames=len(ids), score=float(rewards.sum()))
   return result
