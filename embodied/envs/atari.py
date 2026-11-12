@@ -113,7 +113,7 @@ class Atari(embodied.Env):
     # convert to pixels
     # asterix only
     if self.name.lower() == "asterix":
-      player_x_screen = player_x + 8
+      player_x_screen = player_x
       player_y_screen = 16 * player_y + 26
       return player_x_screen, player_y_screen
 
