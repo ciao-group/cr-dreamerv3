@@ -25,7 +25,7 @@
 #   --model NAME       run name (grid5x5_square24x24_EMMA_foveated_effort)
 #   --game NAME        Atari game (asterix)
 #   --seed N           seed (array task id, else 0)
-#   --episodes N       episodes to play (10)
+#   --episodes N       episodes to play (30)
 #   --max-frames N     cut episodes after N frames, 0 = full (18000 = 15 min)
 #   --repo-dir DIR     checkout with the object logging (~/cr-dreamerv3)
 #   --workspace DIR    logs and checkpoints (project directory)
@@ -42,7 +42,7 @@ REPO_DIR=$HOME/cr-dreamerv3
 GAME=asterix
 MODEL=grid5x5_square24x24_EMMA_foveated_effort
 SEED=${SLURM_ARRAY_TASK_ID:-0}
-EPISODES=10
+EPISODES=30
 MAX_FRAMES=18000
 WORKSPACE_DIR=/sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs
 CONDA_ENV=cr-dreamer_env

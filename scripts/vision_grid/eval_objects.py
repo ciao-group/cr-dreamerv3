@@ -8,6 +8,10 @@ same columns as scripts/human_object_gaze.py (grid variant):
   chance_grid/<c>    = chance/<c>/sum / frames/sum
   on_screen/<c>      = on_screen/<c>/sum / frames/sum
 
+It also writes agent_play_stats.csv with the avatar and gaze statistics of
+embodied/core/play_stats.py (same columns as scripts/human_play_stats.py)
+and the per-step trajectories in agent_trajectories.npz.
+
 Episodes are cut after --max-frames emulator frames (default 18000 = 15 min
 at 20 Hz, the length of an Atari-HEAD trial); 0 plays full episodes.
 
@@ -31,7 +35,7 @@ sys.path.insert(0, str(REPO))
 
 import elements  # noqa: E402
 import embodied  # noqa: E402
-from embodied.core import objects  # noqa: E402
+from embodied.core import object_gaze, objects, play_stats  # noqa: E402
 
 KINDS = ('looked_at', 'chance', 'on_screen')
 COLUMNS = {'looked_at': 'looked_at_grid', 'chance': 'chance_grid', 'on_screen': 'on_screen'}
@@ -52,21 +56,39 @@ def snapshot_checkpoint(run_dir: pathlib.Path, out_dir: pathlib.Path) -> pathlib
   return target
 
 
+STEP_KEYS = ('frames', 'reward', 'avatar_x', 'avatar_y', 'gaze')
+
+
 class Episodes:
-  """Sums the object logs per episode, cut at max_frames."""
+  """Sums the object logs per episode, cut at max_frames, and keeps the
+  per-step trajectory.
+
+  A transition holds the observation of an env step together with the
+  action chosen on it, so the gaze square used during the step is the one
+  of the previous transition of the same worker."""
 
   def __init__(self, max_frames: int):
     self.max_frames = max_frames
     self.running = {}
+    self.prev_gaze = {}
     self.done = []
 
   def __call__(self, tran, worker, **kwargs):
+    gaze, self.prev_gaze[worker] = self.prev_gaze.get(worker), int(tran['gaze_position'])
     if tran['is_first']:
       self.running[worker] = {'score': 0.0, 'steps': 0, 'frames': 0.0,
-                              **{f'{k}/{c}': 0.0 for k in KINDS for c in objects.CATEGORIES}}
+                              **{f'{k}/{c}': 0.0 for k in KINDS for c in objects.CATEGORIES},
+                              'trajectory': {k: [] for k in STEP_KEYS}}
+      return  # The reset observation covers no emulator frames.
     ep = self.running.get(worker)
     if ep is None:  # Episode already cut, wait for the next one.
       return
+    traj = ep['trajectory']
+    traj['frames'].append(float(tran['log/frames']))
+    traj['reward'].append(float(tran['log/game_score']))
+    traj['avatar_x'].append(float(tran['log/player_position_x_raw']))
+    traj['avatar_y'].append(float(tran['log/player_position_y_raw']))
+    traj['gaze'].append(gaze)
     ep['score'] += float(tran['log/game_score'])
     ep['steps'] += 1
     ep['frames'] += float(tran['log/frames'])
@@ -82,11 +104,34 @@ class Episodes:
             f'{" (cut)" if ep["cut"] else ""}', flush=True)
 
 
+def write_play_stats(done, grid, game, run_dir, step, out_dir):
+  """Avatar and gaze statistics per episode, and the trajectories."""
+  n_squares = grid.count[0] * grid.count[1]
+  rows, arrays = [], {}
+  for i, ep in enumerate(done):
+    t = ep['trajectory']
+    traj = play_stats.agent_trajectory(t['frames'], t['reward'], t['avatar_x'], t['avatar_y'],
+                                       t['gaze'], n_squares)
+    rows.append({'run': str(run_dir), 'checkpoint_step': step, 'episode': i, 'rows': len(traj.time),
+                 **play_stats.stats(traj, grid, game)})
+    for k in STEP_KEYS:
+      arrays[f'ep{i}/{k}'] = np.asarray(t[k], np.float32)
+  np.savez_compressed(out_dir / 'agent_trajectories.npz', **arrays)
+  path = out_dir / 'agent_play_stats.csv'
+  with open(path, 'w', newline='') as f:
+    writer = csv.DictWriter(f, list(rows[0]))
+    writer.writeheader()
+    writer.writerows(rows)
+  print(f'Wrote {path}')
+  from scripts.human_play_stats import print_summary
+  print_summary(rows, grid, f'{len(rows)} agent episodes, checkpoint step {step}')
+
+
 def main():
   parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
   parser.add_argument('--run-dir', required=True, help='training run with config.yaml and ckpt/')
   parser.add_argument('--out-dir', required=True)
-  parser.add_argument('--episodes', type=int, default=10)
+  parser.add_argument('--episodes', type=int, default=30)
   parser.add_argument('--envs', type=int, default=10)
   parser.add_argument('--max-frames', type=int, default=18000)
   parser.add_argument('--platform', default='cuda')
@@ -124,6 +169,10 @@ def main():
   driver.close()
 
   step = int(pickle.loads((ckpt / 'step.pkl').read_bytes()))
+  env = config.env['cr-atari']
+  grid = object_gaze.Grid(tuple(env.size), tuple(env.vision_square_size), tuple(env.vision_square_count))
+  game = config.task.split('_', 1)[1]
+  write_play_stats(episodes.done[:args.episodes], grid, game, run_dir, step, out_dir)
   rows = []
   for i, ep in enumerate(episodes.done[:args.episodes]):
     row = {'run': str(run_dir), 'checkpoint_step': step, 'episode': i, 'score': ep['score'],
