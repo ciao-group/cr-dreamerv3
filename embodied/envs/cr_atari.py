@@ -167,13 +167,14 @@ class CrAtari(Atari):
         return vision.distance_to_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), screen_size=(self.W, self.H))
 
     def avatar_is_observed(self) -> bool:
-        if self.prev_gaze_position:
+        if self.prev_gaze_position is not None:
             return vision.check_if_bbox_intersects_vision_square(gaze_position=self.prev_gaze_position, vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), screen_size=(self.W, self.H))
         return False
 
     def avatar_is_observed_scaled(self) -> bool:
-        if self.prev_gaze_position:
+        if self.prev_gaze_position is not None:
             return vision.check_if_bbox_intersects_vision_square_scaled(gaze_position=self.prev_gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, bbox_to_check=(self.character_position[0], self.character_position[1], 8, 11), scale_x=self.size[0] / self.W, scale_y=self.size[1] / self.H, screen_size=(self.W, self.H))
+        return False
 
     def step(self, action):
 
