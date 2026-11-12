@@ -123,28 +123,47 @@ def test_square_hits_per_category():
   assert not hits['player'].any()
 
 
-def test_cr_atari_logs_looked_at_categories():
+def make_cr_atari(**kw):
   pytest.importorskip('ale_py')
   from embodied.envs.cr_atari import CrAtari
-  env = CrAtari('asterix', size=(96, 96), gray=False, vision_square_size=(24, 24),
-                vision_square_count=(5, 5), seed=0)
-  keys = [k for k in env.obs_space if k.startswith(('log/looked_at/', 'log/on_screen/', 'log/chance/'))]
-  assert len(keys) == 3 * len(objects.CATEGORIES)
+  return CrAtari('asterix', size=(96, 96), gray=False, vision_square_size=(24, 24),
+                 vision_square_count=(5, 5), seed=0, **kw)
+
+
+def test_cr_atari_logs_object_time_in_frames():
+  # EMMA makes the steps last different numbers of frames.
+  env = make_cr_atari(vision_model='EMMA')
   rng = np.random.default_rng(0)
-  seen_player = looked_player = 0
   obs = env.step({'action': 0, 'reset': True, 'gaze_position': 12})
+  assert obs['log/frames'] == 0
+  totals = {k: 0.0 for k in obs if k.startswith('log/') and '/' in k[4:] or k == 'log/frames'}
+  lengths = set()
   for _ in range(300):
-    gaze = int(rng.integers(25))
+    before = env.duration
     obs = env.step({'action': int(rng.integers(len(env.actionset))),
-                    'reset': bool(obs['is_last']), 'gaze_position': gaze})
-    for key in keys:
-      assert key in obs, key
+                    'reset': bool(obs['is_last']), 'gaze_position': int(rng.integers(25))})
+    if obs['is_first']:
+      continue
+    frames = obs['log/frames']
+    assert frames == env.duration - before
+    lengths.add(int(frames))
     for c in objects.CATEGORIES:
-      # Looking at a category is only possible where it is on screen.
-      assert not obs[f'log/looked_at/{c}'] or obs[f'log/on_screen/{c}']
-      assert 0.0 <= obs[f'log/chance/{c}'] <= 1.0
-    seen_player += obs['log/on_screen/player']
-    looked_player += obs['log/looked_at/player']
-  assert seen_player > 200
+      assert 0 <= obs[f'log/looked_at/{c}'] <= obs[f'log/on_screen/{c}'] <= frames
+      assert 0 <= obs[f'log/chance/{c}'] <= obs[f'log/on_screen/{c}']
+    for k in totals:
+      totals[k] += obs[k]
+  assert len(lengths) > 1, lengths
+  share = totals['log/looked_at/player'] / totals['log/frames']
+  assert totals['log/on_screen/player'] / totals['log/frames'] > 0.9
   # A random gaze on a 5x5 grid hits the avatar sometimes, but not always.
-  assert 0 < looked_player < seen_player
+  assert 0 < share < 0.5
+
+
+def test_avatar_is_observed_at_gaze_position_zero():
+  env = make_cr_atari()
+  env.step({'action': 0, 'reset': True, 'gaze_position': 0})
+  env.prev_gaze_position = 0
+  # Gaze 0 is a real position (top left), not "no gaze".
+  assert env.avatar_is_observed_scaled() is not None
+  env.prev_gaze_position = None
+  assert env.avatar_is_observed_scaled() is False

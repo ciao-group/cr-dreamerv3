@@ -79,6 +79,7 @@ class CrAtari(Atari):
         # looked-at metrics of game objects (only for games with an object
         # detector).
         self._track_objects = self.name in objects.GAMES
+        self._object_frames = self._empty_object_frames()
         self._vision_squares = [
             (*vision.convert_1d_vision_square_position_to_2d(
                 k, self.vision_square_count, (self.W, self.H), self.scaled_vision_square_size),
@@ -108,39 +109,54 @@ class CrAtari(Atari):
         }
 
     def _object_log_space(self):
-        """Per object category (player, enemy, item, reward):
+        """Time spent on each object category (player, enemy, item, reward),
+        in emulator frames of 50 ms, summed over the frames of one step:
 
-        looked_at: the vision square overlaps an object of the category.
-        on_screen: an object of the category is on screen at all.
-        chance: share of all vision squares that overlap one, i.e. the
-          looked_at level of a gaze drawn uniformly from the grid.
+        frames: frames emulated in this step.
+        looked_at/<c>: frames in which the shown vision square overlapped an
+          object of the category.
+        on_screen/<c>: frames in which such an object was on screen.
+        chance/<c>: frames weighted by the share of all vision squares that
+          overlapped one, i.e. looked_at of a gaze drawn uniformly from the grid.
 
-        Episode /avg of looked_at is the share of steps the category was looked
-        at; looked_at/sum / on_screen/sum is that share given it was visible.
+        Share of time in an episode: looked_at/<c>/sum / frames/sum (likewise
+        chance); given the category was visible: looked_at/<c>/sum /
+        on_screen/<c>/sum.
         """
         if not self._track_objects:
             return {}
-        space = {}
-        for category in objects.CATEGORIES:
-            space[f'log/looked_at/{category}'] = elements.Space(bool)
-            space[f'log/on_screen/{category}'] = elements.Space(bool)
-            space[f'log/chance/{category}'] = elements.Space(np.float32)
+        space = {'log/frames': elements.Space(np.float32)}
+        for key in self._object_frames:
+            if key != 'frames':
+                space[f'log/{key}'] = elements.Space(np.float32)
         return space
+
+    @staticmethod
+    def _empty_object_frames():
+        counts = {'frames': 0.0}
+        for category in objects.CATEGORIES:
+            for kind in ('looked_at', 'on_screen', 'chance'):
+                counts[f'{kind}/{category}'] = 0.0
+        return counts
+
+    def _count_object_frame(self, gaze):
+        """Adds the current emulator frame, seen with the vision square at
+        `gaze`, to the object time of this step."""
+        if not self._track_objects:
+            return
+        found = objects.detect(self.ale.getScreenRGB(), self.name)
+        hits = objects.square_hits(found, self._vision_squares)
+        counts = self._object_frames
+        counts['frames'] += 1
+        for category, row in hits.items():
+            counts[f'looked_at/{category}'] += float(gaze is not None and row[gaze])
+            counts[f'on_screen/{category}'] += float(any(o.category == category for o in found))
+            counts[f'chance/{category}'] += float(row.mean())
 
     def _object_logs(self):
         if not self._track_objects:
             return {}
-        # The raw screen of the last emulated frame; self.buffers already has
-        # the vision square applied.
-        found = objects.detect(self.ale.getScreenRGB(), self.name)
-        hits = objects.square_hits(found, self._vision_squares)
-        gaze = self.prev_gaze_position
-        logs = {}
-        for category, row in hits.items():
-            logs[f'log/looked_at/{category}'] = bool(gaze is not None and row[gaze])
-            logs[f'log/on_screen/{category}'] = any(o.category == category for o in found)
-            logs[f'log/chance/{category}'] = np.float32(row.mean())
-        return logs
+        return {f'log/{k}': np.float32(v) for k, v in self._object_frames.items()}
 
     @property
     def act_space(self):
@@ -202,6 +218,7 @@ class CrAtari(Atari):
             self.duration = 0
             self.passed_time = 0
             self.done = False
+            self._object_frames = self._empty_object_frames()
             return self._obs(0.0, is_first=True)
 
         all_delay_times = {"default": 0.0}
@@ -260,6 +277,7 @@ class CrAtari(Atari):
         assert 0 <= action['action'] < len(self.actionset), action['action']
         act = self.actionset[action['action']]
         no_act = self.ACTION_MEANING.index('NOOP')
+        self._object_frames = self._empty_object_frames()
         for repeat in range(repeating):
 
             if (motor_action_frames <= repeat):
@@ -268,6 +286,9 @@ class CrAtari(Atari):
                 reward += self.ale.act(no_act)
             self.duration += 1
             self.passed_time += self.TIME_PER_FRAME
+            # Until the saccade has landed, the old vision square is shown.
+            self._count_object_frame(
+                gaze_position if repeat >= (emma_frames - 1) or self.prev_gaze_position is None else self.prev_gaze_position)
             if repeat >= repeating - self.pooling:
                 self._render()
                 self.buffers[0] = vision.apply_vision_square(
