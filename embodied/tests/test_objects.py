@@ -45,6 +45,24 @@ def test_classifies_each_object_type():
   ])
 
 
+@pytest.mark.parametrize('colours, size, category', [
+    # Items of later levels that share colours with reward displays.
+    (((170, 170, 170), (192, 192, 192), (214, 214, 214), (240, 128, 128)), (7, 11), 'item'),  # helmet
+    (((198, 89, 179),), (8, 5), 'item'),  # 500 item, same colour as the 50 display
+    (((214, 214, 214),), (5, 11), 'item'),  # shield
+    # Reward displays of later levels.
+    (((135, 183, 84), (170, 170, 170), (213, 130, 74)), (8, 11), 'reward'),  # 100
+    (((170, 170, 170), (213, 130, 74)), (8, 11), 'reward'),  # 300, frame = lane
+    (((163, 57, 21), (164, 89, 208), (170, 170, 170)), (8, 11), 'reward'),  # 500
+    # A display fragment left next to the player.
+    (((135, 183, 84),), (2, 1), 'reward'),
+])
+def test_items_and_reward_displays_of_all_levels(colours, size, category):
+  frame = blank()
+  draw(frame, 70, 90, *size, *colours)
+  assert found(frame) == [(category, (70, 90, *size))]
+
+
 def test_player_is_separated_from_an_overlapping_item():
   frame = blank()
   draw(frame, 50, 90, 7, 10, DARK_RED, RED)

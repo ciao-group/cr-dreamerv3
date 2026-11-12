@@ -11,7 +11,8 @@ separated from an item or enemy it overlaps. All other non-background pixels in
 the playfield are grouped into connected components and classified by their
 colours.
 
-The colour tables follow OCAtari's vision mode (ocatari/vision/<game>.py).
+The colour tables started from OCAtari's vision mode (ocatari/vision/<game>.py)
+and were completed on the Atari-HEAD frames of all levels (see GAMES).
 OCAtari itself is not used at runtime: its Asterix detector drops all items,
 because every item type is matched into the same object slots and a later type
 without detections clears the earlier ones.
@@ -47,8 +48,11 @@ class GameSpec:
   background: colours that never belong to an object.
   player: colours of the avatar.
   enemy: a component with any of these colours is an enemy.
-  reward: a component whose colours all lie in this set is a reward display
-    (points shown where an item was collected).
+  reward: colours of the reward displays (points shown where an item was
+    collected). A component is a reward display if all its colours lie in
+    this set and it either contains `digits` or is a fragment of at most
+    `fragment` pixels left over where the player covers a display.
+  digits: colour of the point digits, present in every reward display.
   Everything else in the playfield is an item.
   """
   playfield: tuple[int, int]
@@ -56,18 +60,40 @@ class GameSpec:
   player: tuple[tuple[int, int, int], ...]
   enemy: tuple[tuple[int, int, int], ...]
   reward: tuple[tuple[int, int, int], ...]
+  digits: tuple[int, int, int]
+  fragment: int
 
 
 GAMES = {
-    # Level 1 checked on ALE frames: player 8x11 (16x11 when wide), lyre
-    # (enemy) 7x11, cauldron (item) 7x10, reward display "50" 6x11. The items
-    # of later levels (helmet, shield, lamp, ...) fall into 'item'.
+    # Checked on all 15 Atari-HEAD Asterix trials (all levels): the object
+    # next to the player just before and after every reward gives the item
+    # and the display it turns into. Player 8x11 (6x11, 8x9 in other
+    # poses), lyre (enemy) 7x11. Items and displays by points:
+    #    50 cauldron 7x10   (167,26,26) (184,50,50)
+    #   100 helmet 7x11     greys (170..236) (240,128,128)
+    #   200 shield 5x11     (214,214,214)
+    #   300 lamp 8x10       (184,50,50) (214,214,214)
+    #   400 apple 8x11      (110,156,66) (184,50,50)
+    #   500 three items     (198,89,179) 8x5, (184,50,50) (214,214,214)
+    # Displays are 8x11 (50: 6x11) with digits (170,170,170) and a frame
+    # and fill per value; the frame of 300 has the lane colour, so only
+    # digits and fill remain. The helmet also contains (170,170,170) but
+    # has colours outside the display set, so it stays an item.
     'asterix': GameSpec(
         playfield=(24, 152),
         background=((0, 0, 0), (84, 92, 214), (51, 26, 163)),
         player=((187, 187, 53),),
         enemy=((228, 111, 111),),
-        reward=((127, 92, 213), (170, 170, 170), (198, 89, 179)),
+        reward=(
+            (170, 170, 170),  # digits
+            (127, 92, 213), (198, 89, 179),  # 50
+            (135, 183, 84), (213, 130, 74),  # 100, 300
+            (84, 138, 210), (195, 144, 61),  # 200
+            (214, 92, 92),  # 400
+            (163, 57, 21), (164, 89, 208),  # 500
+        ),
+        digits=(170, 170, 170),
+        fragment=4,
     ),
 }
 
@@ -104,11 +130,13 @@ def detect(frame: np.ndarray, game: str) -> list[GameObject]:
   rest = ~np.isin(packed, _pack(spec.background)) & ~player
   labels, boxes = _components(rest)
   enemy, reward = _pack(spec.enemy), _pack(spec.reward)
+  digits = _pack(spec.digits)
   for k, (x, y, w, h) in enumerate(boxes, 1):
     colours = packed[(labels == k) & rest]
     if np.isin(colours, enemy).any():
       category = 'enemy'
-    elif np.isin(colours, reward).all():
+    elif np.isin(colours, reward).all() and (
+        np.isin(digits, colours) or w * h <= spec.fragment):
       category = 'reward'
     else:
       category = 'item'
