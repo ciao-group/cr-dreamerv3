@@ -35,7 +35,12 @@ class Agent(embodied.jax.Agent):
     self.act_space = act_space
     self.config = config
 
-    exclude = ('is_first', 'is_last', 'is_terminal', 'reward')
+    # 'frames' (emulator frames per step) is only used for frame_discount.
+    exclude = ('is_first', 'is_last', 'is_terminal', 'reward', 'frames')
+    if config.frame_discount:
+      assert 'frames' in obs_space, (
+          'frame_discount needs the frames observation of the env')
+      assert config.contdisc, 'frame_discount needs contdisc'
     enc_space = {k: v for k, v in obs_space.items() if k not in exclude}
     dec_space = {k: v for k, v in obs_space.items() if k not in exclude}
     self.enc = {
@@ -173,7 +178,11 @@ class Agent(embodied.jax.Agent):
     losses['rew'] = self.rew(inp, 2).loss(obs['reward'])
     con = f32(~obs['is_terminal'])
     if self.config.contdisc:
-      con *= 1 - 1 / self.config.horizon
+      # The continue head learns the discount of each step. With
+      # frame_discount it is applied per emulator frame, so that steps that
+      # last longer (EMMA saccades) are discounted more.
+      exponent = f32(obs['frames']) if self.config.frame_discount else 1.0
+      con *= (1 - 1 / self.config.horizon) ** exponent
     losses['con'] = self.con(self.feat2tensor(repfeat), 2).loss(con)
     for key, recon in recons.items():
       space, value = self.obs_space[key], obs[key]
@@ -219,9 +228,10 @@ class Agent(embodied.jax.Agent):
     if self.config.repval_loss:
       feat = sg(repfeat, skip=self.config.repval_grad)
       last, term, rew = [obs[k] for k in ('is_last', 'is_terminal', 'reward')]
+      frames = f32(obs['frames']) if self.config.frame_discount else jnp.ones_like(rew)
       boot = imgloss_out['ret'][:, 0].reshape(B, K)
-      feat, last, term, rew, boot = jax.tree.map(
-          lambda x: x[:, -K:], (feat, last, term, rew, boot))
+      feat, last, term, rew, boot, frames = jax.tree.map(
+          lambda x: x[:, -K:], (feat, last, term, rew, boot, frames))
       inp = self.feat2tensor(feat)
       los, reploss_out, mets = repl_loss(
           last, term, rew, boot,
@@ -230,6 +240,7 @@ class Agent(embodied.jax.Agent):
           self.valnorm,
           update=training,
           horizon=self.config.horizon,
+          frames=frames,
           **self.config.repl_loss)
       losses.update(los)
       metrics.update(prefix(mets, 'reploss'))
@@ -454,6 +465,7 @@ def repl_loss(
     slowtar=True,
     horizon=333,
     lam=0.95,
+    frames=None,
 ):
   losses = {}
 
@@ -461,7 +473,10 @@ def repl_loss(
   val = value.pred() * vscale + voffset
   slowval = slowvalue.pred() * vscale + voffset
   tarval = slowval if slowtar else val
+  # Discount per step, or per emulator frame of each step (frame_discount).
   disc = 1 - 1 / horizon
+  if frames is not None:
+    disc = disc ** frames
   weight = f32(~last)
   ret = lambda_return(last, term, rew, tarval, boot, disc, lam)
 
@@ -482,6 +497,8 @@ def repl_loss(
 def lambda_return(last, term, rew, val, boot, disc, lam):
   chex.assert_equal_shape((last, term, rew, val, boot))
   rets = [boot[:, -1]]
+  # disc is a number or one discount per step (B, T) like term.
+  disc = disc[:, 1:] if jnp.ndim(disc) == 2 else disc
   live = (1 - f32(term))[:, 1:] * disc
   cont = (1 - f32(last))[:, 1:] * lam
   interm = rew[:, 1:] + (1 - cont) * live * boot[:, 1:]

@@ -32,12 +32,18 @@ class CrAtari(Atari):
         eye_movement_effort: bool = False,
         effort_kstatic: float = 0.001,
         saccade_cost: float = 0.0,
+        frames_obs: bool = False,
     ):
         """eye_movement_effort: subtract the static effort of holding the gaze
         away from the screen centre every step, effort_kstatic * eccentricity^2
         (degrees). saccade_cost: subtract saccade_cost * amplitude (degrees)
         for every gaze shift, so that long saccades cost more; 0 disables it.
-        Both are logged as log/effort_penalty and log/saccade_penalty."""
+        Both are logged as log/effort_penalty and log/saccade_penalty.
+
+        frames_obs: add the observation 'frames', the number of emulator
+        frames the step lasted (0 on reset). With EMMA a step lasts longer
+        when the gaze moves; the agent's frame_discount uses it to discount
+        per frame instead of per step."""
         super().__init__(
             name,
             repeat,
@@ -98,10 +104,14 @@ class CrAtari(Atari):
              *self.scaled_vision_square_size)
             for k in range(self.vision_square_count[0] * self.vision_square_count[1])
         ]
+        self._frames_obs = frames_obs
+        self._step_frames = 0
 
     @property
     def obs_space(self):
+        frames = {'frames': elements.Space(np.float32)} if self._frames_obs else {}
         return {
+            **frames,
             'image': elements.Space(np.uint8, (*self.size, 1 if self.gray else 3)),
             'reward': elements.Space(np.float32),
             'is_first': elements.Space(bool),
@@ -235,6 +245,7 @@ class CrAtari(Atari):
             self.done = False
             self._object_frames = self._empty_object_frames()
             self._effort_penalty = self._saccade_penalty = self._saccade_amplitude = 0.0
+            self._step_frames = 0
             return self._obs(0.0, is_first=True)
 
         all_delay_times = {"default": 0.0}
@@ -303,6 +314,7 @@ class CrAtari(Atari):
         act = self.actionset[action['action']]
         no_act = self.ACTION_MEANING.index('NOOP')
         self._object_frames = self._empty_object_frames()
+        start = self.duration
         for repeat in range(repeating):
 
             if (motor_action_frames <= repeat):
@@ -340,6 +352,7 @@ class CrAtari(Atari):
             if terminal or last:
                 break
         self.done = last
+        self._step_frames = self.duration - start
         # TODO: Does swapping these two lines breaks anything?
         # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
@@ -407,5 +420,7 @@ class CrAtari(Atari):
         obs["log/saccade_penalty"] = np.float32(self._saccade_penalty)
         obs["log/saccade_amplitude"] = np.float32(self._saccade_amplitude)
         obs.update(self._object_logs())
+        if self._frames_obs:
+            obs["frames"] = np.float32(self._step_frames)
 
         return obs
