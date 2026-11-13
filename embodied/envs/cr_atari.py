@@ -30,7 +30,14 @@ class CrAtari(Atari):
         motor_action_delay: bool = False,
         reaction_time_delay: bool = False,
         eye_movement_effort: bool = False,
+        effort_kstatic: float = 0.001,
+        saccade_cost: float = 0.0,
     ):
+        """eye_movement_effort: subtract the static effort of holding the gaze
+        away from the screen centre every step, effort_kstatic * eccentricity^2
+        (degrees). saccade_cost: subtract saccade_cost * amplitude (degrees)
+        for every gaze shift, so that long saccades cost more; 0 disables it.
+        Both are logged as log/effort_penalty and log/saccade_penalty."""
         super().__init__(
             name,
             repeat,
@@ -74,6 +81,11 @@ class CrAtari(Atari):
         self.reaction_time_delay = reaction_time_delay
         self._game_score = 0
         self._eye_movement_effort = eye_movement_effort
+        self._effort_kstatic = effort_kstatic
+        self._saccade_cost = saccade_cost
+        self._effort_penalty = 0.0
+        self._saccade_penalty = 0.0
+        self._saccade_amplitude = 0.0
 
         # Vision squares on the ALE screen, indexed by gaze position, for the
         # looked-at metrics of game objects (only for games with an object
@@ -105,6 +117,9 @@ class CrAtari(Atari):
             'log/avatar_distance_vision_square_scaled': elements.Space(np.float32),
             'log/avatar_is_in_vision_square_scaled': elements.Space(bool),
             'log/game_score': elements.Space(np.float32),
+            'log/effort_penalty': elements.Space(np.float32),
+            'log/saccade_penalty': elements.Space(np.float32),
+            'log/saccade_amplitude': elements.Space(np.float32),
             **self._object_log_space(),
         }
 
@@ -219,6 +234,7 @@ class CrAtari(Atari):
             self.passed_time = 0
             self.done = False
             self._object_frames = self._empty_object_frames()
+            self._effort_penalty = self._saccade_penalty = self._saccade_amplitude = 0.0
             return self._obs(0.0, is_first=True)
 
         all_delay_times = {"default": 0.0}
@@ -236,7 +252,16 @@ class CrAtari(Atari):
             emma_frames = emma_time // self.TIME_PER_FRAME
             all_delay_times["EMMA"] = emma_time
 
-            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
+        if self._eye_movement_effort:
+            effort_penalty = vision.calc_effort(position=gaze_position,vision_square_count=self.vision_square_count, vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H), visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL, kstatic=self._effort_kstatic)
+        amplitude = 0.0
+        if self.prev_gaze_position is not None and self.prev_gaze_position != gaze_position:
+            amplitude = vision.calc_gaze_shift_eccentricity_from_1d_vision_square_positions(
+                prev_position=self.prev_gaze_position, next_position=gaze_position,
+                vision_square_count=self.vision_square_count,
+                vision_square_size=self.scaled_vision_square_size, screen_size=(self.W, self.H),
+                visual_degrees_per_pixel=self.VISUAL_DEGREES_PER_PIXEL)
+        saccade_penalty = self._saccade_cost * amplitude
 
         motor_action_frames = 0
         if self.motor_action_delay:
@@ -322,9 +347,11 @@ class CrAtari(Atari):
         # save for logging raw ALE reward
         self._game_score = reward
 
-        # apply effort
-        if self._eye_movement_effort:
-            reward -= effort_penalty
+        # apply effort and saccade cost
+        self._effort_penalty = float(effort_penalty)
+        self._saccade_penalty = float(saccade_penalty)
+        self._saccade_amplitude = float(amplitude)
+        reward -= effort_penalty + saccade_penalty
         obs = self._obs(reward, is_last=last, is_terminal=terminal)
         return obs
 
@@ -376,6 +403,9 @@ class CrAtari(Atari):
         obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
         obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
         obs["log/game_score"] = self._game_score
+        obs["log/effort_penalty"] = np.float32(self._effort_penalty)
+        obs["log/saccade_penalty"] = np.float32(self._saccade_penalty)
+        obs["log/saccade_amplitude"] = np.float32(self._saccade_amplitude)
         obs.update(self._object_logs())
 
         return obs

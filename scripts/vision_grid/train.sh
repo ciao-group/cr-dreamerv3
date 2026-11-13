@@ -23,6 +23,7 @@
 #   sbatch --array=0 scripts/vision_grid/train.sh           # only seed 0
 #   sbatch scripts/vision_grid/train.sh --count 4,4         # 4x4 baseline
 #   sbatch scripts/vision_grid/train.sh --no-effort         # without effort
+#   sbatch scripts/vision_grid/train.sh --effort-kstatic 0.02 --saccade-cost 0.1
 #   bash scripts/vision_grid/train.sh --dry-run             # print command
 #   sbatch scripts/vision_grid/train.sh -- --run.steps 5000 # short test
 #
@@ -32,6 +33,9 @@
 #   --vision-model M   EMMA or None (EMMA)
 #   --vision-mode M    foveated, periphery, periphery-cutoff (foveated)
 #   --no-effort        disable the eye movement effort penalty
+#   --effort-kstatic K static effort per step = K * eccentricity^2 (0.001)
+#   --saccade-cost C   penalty C * saccade amplitude in degrees per gaze
+#                      shift (0 = off)
 #   --seed N           seed (array task id, else 0)
 #   --repo-dir DIR     checkout to run from (~/cr-dreamerv3)
 #   --workspace DIR    logs and checkpoints (project directory)
@@ -51,6 +55,8 @@ SQUARE=24,24
 VISION_MODEL=EMMA
 VISION_MODE=foveated
 EFFORT=True
+EFFORT_KSTATIC=0.001
+SACCADE_COST=0
 SEED=${SLURM_ARRAY_TASK_ID:-0}
 # Checkpoints include the replay buffer (tens of GB per run), so this must be
 # project or scratch storage rather than the home directory.
@@ -69,6 +75,8 @@ while [ $# -gt 0 ]; do
     --square) SQUARE=$2 ;;
     --vision-model) VISION_MODEL=$2 ;;
     --vision-mode) VISION_MODE=$2 ;;
+    --effort-kstatic) EFFORT_KSTATIC=$2 ;;
+    --saccade-cost) SACCADE_COST=$2 ;;
     --seed) SEED=$2 ;;
     --repo-dir) REPO_DIR=$2 ;;
     --workspace) WORKSPACE_DIR=$2 ;;
@@ -80,7 +88,12 @@ done
 
 EFFORT_NAME=effort
 [ "${EFFORT}" = False ] && EFFORT_NAME=noeffort
-MODEL=grid${COUNT/,/x}_square${SQUARE/,/x}_${VISION_MODEL}_${VISION_MODE}_${EFFORT_NAME}
+# Non-default penalties get their own run name, so that existing runs are
+# never resumed with other settings.
+[ "${EFFORT}" = True ] && [ "${EFFORT_KSTATIC}" != 0.001 ] && EFFORT_NAME=${EFFORT_NAME}${EFFORT_KSTATIC}
+SACCADE_NAME=
+[ "${SACCADE_COST}" != 0 ] && SACCADE_NAME=_saccade${SACCADE_COST}
+MODEL=grid${COUNT/,/x}_square${SQUARE/,/x}_${VISION_MODEL}_${VISION_MODE}_${EFFORT_NAME}${SACCADE_NAME}
 RUN_DIR=${WORKSPACE_DIR}/${GAME}/vision_grid/${MODEL}/seed${SEED}
 
 CMD=(
@@ -95,6 +108,8 @@ CMD=(
   --env.cr-atari.vision_model "${VISION_MODEL}"
   --env.cr-atari.vision_mode "${VISION_MODE}"
   --env.cr-atari.eye_movement_effort "${EFFORT}"
+  --env.cr-atari.effort_kstatic "${EFFORT_KSTATIC}"
+  --env.cr-atari.saccade_cost "${SACCADE_COST}"
   --env.cr-atari.pooling 2
   --env.cr-atari.repeat 1
   --jax.policy_devices 0,1
