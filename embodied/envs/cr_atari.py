@@ -29,7 +29,12 @@ class CrAtari(Atari):
         motor_action_delay: bool = False,
         reaction_time_delay: bool = False,
         eye_movement_effort: bool = False,
+        frames_obs: bool = False,
     ):
+        """frames_obs: add the observation 'frames', the number of emulator
+        frames the step lasted (0 on reset). With EMMA a step lasts longer
+        when the gaze moves; the agent's frame_discount uses it to discount
+        per frame instead of per step."""
         super().__init__(
             name,
             repeat,
@@ -73,10 +78,14 @@ class CrAtari(Atari):
         self.reaction_time_delay = reaction_time_delay
         self._game_score = 0
         self._eye_movement_effort = eye_movement_effort
+        self._frames_obs = frames_obs
+        self._step_frames = 0
 
     @property
     def obs_space(self):
+        frames = {'frames': elements.Space(np.float32)} if self._frames_obs else {}
         return {
+            **frames,
             'image': elements.Space(np.uint8, (*self.size, 1 if self.gray else 3)),
             'reward': elements.Space(np.float32),
             'is_first': elements.Space(bool),
@@ -153,6 +162,7 @@ class CrAtari(Atari):
             self.duration = 0
             self.passed_time = 0
             self.done = False
+            self._step_frames = 0
             return self._obs(0.0, is_first=True)
 
         all_delay_times = {"default": 0.0}
@@ -211,6 +221,7 @@ class CrAtari(Atari):
         assert 0 <= action['action'] < len(self.actionset), action['action']
         act = self.actionset[action['action']]
         no_act = self.ACTION_MEANING.index('NOOP')
+        start = self.duration
         for repeat in range(repeating):
 
             if (motor_action_frames <= repeat):
@@ -245,6 +256,7 @@ class CrAtari(Atari):
             if terminal or last:
                 break
         self.done = last
+        self._step_frames = self.duration - start
         # TODO: Does swapping these two lines breaks anything?
         # TODO: We need the current gaze position for the vision square metric calculations
         self.prev_gaze_position = gaze_position
@@ -306,5 +318,7 @@ class CrAtari(Atari):
         obs["log/avatar_distance_vision_square_scaled"] = self.distance_avatar_vision_square_scaled()
         obs["log/avatar_is_in_vision_square_scaled"] = self.avatar_is_observed_scaled()
         obs["log/game_score"] = self._game_score
+        if self._frames_obs:
+            obs["frames"] = np.float32(self._step_frames)
 
         return obs

@@ -23,6 +23,7 @@
 #   sbatch --array=0 scripts/vision_grid/train.sh           # only seed 0
 #   sbatch scripts/vision_grid/train.sh --count 4,4         # 4x4 baseline
 #   sbatch scripts/vision_grid/train.sh --no-effort         # without effort
+#   sbatch scripts/vision_grid/train.sh --frame-discount --horizon 1000
 #   bash scripts/vision_grid/train.sh --dry-run             # print command
 #   sbatch scripts/vision_grid/train.sh -- --run.steps 5000 # short test
 #
@@ -32,6 +33,8 @@
 #   --vision-model M   EMMA or None (EMMA)
 #   --vision-mode M    foveated, periphery, periphery-cutoff (foveated)
 #   --no-effort        disable the eye movement effort penalty
+#   --frame-discount   discount per emulator frame instead of per step
+#   --horizon N        discount horizon, in frames with --frame-discount (333)
 #   --seed N           seed (array task id, else 0)
 #   --repo-dir DIR     checkout to run from (~/cr-dreamerv3)
 #   --workspace DIR    logs and checkpoints (project directory)
@@ -51,6 +54,8 @@ SQUARE=24,24
 VISION_MODEL=EMMA
 VISION_MODE=foveated
 EFFORT=True
+FRAME_DISCOUNT=False
+HORIZON=333
 SEED=${SLURM_ARRAY_TASK_ID:-0}
 # Checkpoints include the replay buffer (tens of GB per run), so this must be
 # project or scratch storage rather than the home directory.
@@ -63,6 +68,8 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --) shift; EXTRA_FLAGS=("$@"); break ;;
     --no-effort) EFFORT=False; shift; continue ;;
+    --frame-discount) FRAME_DISCOUNT=True; shift; continue ;;
+    --horizon) HORIZON=$2 ;;
     --dry-run) DRY_RUN=1; shift; continue ;;
     --game) GAME=$2 ;;
     --count) COUNT=$2 ;;
@@ -80,7 +87,12 @@ done
 
 EFFORT_NAME=effort
 [ "${EFFORT}" = False ] && EFFORT_NAME=noeffort
-MODEL=grid${COUNT/,/x}_square${SQUARE/,/x}_${VISION_MODEL}_${VISION_MODE}_${EFFORT_NAME}
+# Non-default discounting gets its own run name, so that existing runs are
+# never resumed with other settings.
+DISCOUNT_NAME=
+[ "${FRAME_DISCOUNT}" = True ] && DISCOUNT_NAME=_framedisc
+[ "${HORIZON}" != 333 ] && DISCOUNT_NAME=${DISCOUNT_NAME}_horizon${HORIZON}
+MODEL=grid${COUNT/,/x}_square${SQUARE/,/x}_${VISION_MODEL}_${VISION_MODE}_${EFFORT_NAME}${DISCOUNT_NAME}
 RUN_DIR=${WORKSPACE_DIR}/${GAME}/vision_grid/${MODEL}/seed${SEED}
 
 CMD=(
@@ -95,6 +107,9 @@ CMD=(
   --env.cr-atari.vision_model "${VISION_MODEL}"
   --env.cr-atari.vision_mode "${VISION_MODE}"
   --env.cr-atari.eye_movement_effort "${EFFORT}"
+  --env.cr-atari.frames_obs "${FRAME_DISCOUNT}"
+  --agent.frame_discount "${FRAME_DISCOUNT}"
+  --agent.horizon "${HORIZON}"
   --env.cr-atari.pooling 2
   --env.cr-atari.repeat 1
   --jax.policy_devices 0,1
