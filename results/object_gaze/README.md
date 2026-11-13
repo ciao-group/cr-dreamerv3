@@ -6,12 +6,14 @@ As of 2026-11-12, branch `feat/object-gaze-metrics`.
 
 | Folder/file | Content | Created with |
 |---|---|---|
-| `agent/seed{0,1,2}_step*.csv` | 10 episodes per seed, model `grid5x5_square24x24_EMMA_foveated_effort`, cluster job 3310213 | `scripts/vision_grid/eval_objects.sh` |
+| `agent/job3310213_10eps/seed*_step*.csv` | first eval: 10 episodes per seed, model `grid5x5_square24x24_EMMA_foveated_effort` | `scripts/vision_grid/eval_objects.sh` |
+| `agent/seed*_step*.csv`, `agent/seed*_step*_play_stats.csv` | second eval (2026-11-13): 30 episodes per seed, later checkpoints, object shares and avatar/gaze statistics. Seed 2 play stats: 29 episodes (last row was cut off in transfer) | `scripts/vision_grid/eval_objects.sh` |
 | `human/full_trials.csv` | 15 trials (15 min each, one episode) | `scripts/human_object_gaze.py` |
 | `human/max_frames_5000.csv` | first 5000 frames of each trial | `... --max-frames 5000` |
 | `human/max_score_7000.csv`, `max_score_12000.csv` | up to score 7000 / 12000 | `... --max-score N` |
 | `human/play_stats_*.csv` | avatar positions and gaze behaviour (same cuts) | `scripts/human_play_stats.py` |
 | `comparison.csv` | object shares per group (human cut, agent seed, all seeds) and category: mean, sd, min, max, chance, ratio, on screen | `scripts/object_gaze_report.py` |
+| `play_comparison.csv` | avatar and gaze statistics per group (mean, sd), lane shares, gaze row offset to the avatar | `scripts/object_gaze_report.py` |
 | `gaze_heatmaps.png`, `gaze_grid.csv` | gaze time per location: humans per pixel and on the grid (mean over trials), agent on the grid once `agent/*play_stats*.csv` exist | `scripts/object_gaze_report.py` |
 
 Method: `embodied/core/object_gaze.py` (object shares) and `embodied/core/play_stats.py`
@@ -96,3 +98,44 @@ Notes on the comparison:
   (x ±1 px, y exact in 99.5 %).
 - For the agent the chosen square is counted per step; the old squares during EMMA saccades
   are ignored here (unlike part 1).
+
+## 3. Second agent eval: 30 episodes per seed (2026-11-13)
+
+Checkpoints: seed 0 step 32.9M, seed 1 step 38.7M, seed 2 step 27.6M. Humans: first 5000 frames.
+
+### Object shares (grid, % of time, chance in parentheses, range over episodes)
+
+| Category | Human | Agent all seeds (90 ep.) | Seed 1 (best, 30 ep.) |
+|---|---|---|---|
+| player | 57.5 (9.4) · 6.2× [51.5–64.6] | 16.3 (9.5) · 1.7× [9.6–28.4] | 20.2 (9.7) · 2.1× [14.4–28.4] |
+| enemy | 28.8 (13.6) · 2.1× [16.2–39.9] | 13.4 (10.6) · 1.3× [4.4–23.5] | 14.3 (10.5) · 1.4× [7.3–20.3] |
+| item | 30.0 (7.8) · 3.9× [25.8–33.9] | 15.5 (10.7) · 1.5× [6.7–23.8] | 18.9 (12.1) · 1.6× [11.9–23.6] |
+| reward | 45.8 (21.8) · 2.1× [39.0–51.4] | 24.5 (17.3) · 1.4× [10.5–33.5] | 27.7 (16.5) · 1.7× [22.9–33.5] |
+
+The first eval (10 episodes) is confirmed: the values change by less than 2 points.
+Mean score 6456 in 4753 frames (seed 1: 10182 in 5713 frames).
+
+### Avatar and gaze
+
+| Measure | Human first 5000 frames | Agent all seeds | Seed 0 | Seed 1 | Seed 2 |
+|---|---|---|---|---|---|
+| avatar x mean ± sd (px, screen 160) | 76.3 ± 15.8 | 70.1 ± 24.2 | 53.8 ± 23.0 | 56.9 ± 23.8 | 100.7 ± 25.9 |
+| lane changes per min | 66 | 128 | 121 | 136 | 127 |
+| horizontal speed (px/s) | 13.0 | 21.5 | 22.4 | 20.5 | 21.7 |
+| time per lane 0–7 (top→bottom, %) | 5 · 6 · 11 · 28 · 27 · 10 · 8 · 5 | 17 · 11 · 10 · 10 · 10 · 10 · 10 · 24 | | | |
+| gaze entropy (bit, max 4.64) | 3.44 | 4.09 | 4.17 | 4.02 | 4.08 |
+| square switches per s | 2.9 | 3.9 | 3.9 | 3.9 | 3.9 |
+| mean dwell time (ms) | 353 | 256 | 256 | 258 | 253 |
+| gaze in the avatar's square | 34.5 % | 7.0 % | 5.9 % | 10.3 % | 5.4 % |
+| gaze ≤ 1 square from the avatar | 84.6 % | 41.1 % | 38.6 % | 44.4 % | 40.6 % |
+| distance square centre – avatar (px) | 31.9 | 70.7 | 71.3 | 69.5 | 71.4 |
+| row gaze − avatar (−2…+2, %) | 0.8 · 14.8 · 56.0 · 23.2 · 3.4 | 10.5 · 16.4 · 27.1 · 20.4 · 12.0 | | | |
+
+- Play: humans keep the avatar in the middle lanes and the screen centre. The agent uses all lanes
+  about equally and spends ~40 % of the time in the top or bottom lane; each seed has a preferred side
+  (seeds 0/1 left, seed 2 right). It moves about twice as much (lanes and x).
+- Gaze: the agent switches the square on almost every step (3.9/s ≈ one switch per step of ~5 frames,
+  dwell 256 ms ≈ the step length). Humans dwell ~350 ms. The agent's gaze is spread almost uniformly
+  (4.1 of 4.64 bit) and is on or next to the avatar only 41 % of the time (humans 85 %).
+- The heatmaps show no central focus for the agent; each seed has its own few preferred squares
+  (`gaze_heatmaps.png`, all grid maps on one colour scale).

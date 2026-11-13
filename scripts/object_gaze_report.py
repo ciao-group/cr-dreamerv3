@@ -111,7 +111,7 @@ def main():
   for path in sorted((res / 'human').glob('*.csv')):
     if not path.name.startswith('play_stats'):
       table += group_rows(f'human_{path.stem}', read_csv(path))
-  agent_paths = sorted((res / 'agent').glob('seed*.csv'))
+  agent_paths = sorted(p for p in (res / 'agent').glob('seed*.csv') if 'play_stats' not in p.name)
   for path in agent_paths:
     table += group_rows(f'agent_{path.stem}', read_csv(path))
   if agent_paths:
@@ -121,6 +121,31 @@ def main():
     writer.writeheader()
     writer.writerows({k: (f'{v:.4f}' if isinstance(v, float) else v) for k, v in r.items()} for r in table)
   print(f'Wrote {res / "comparison.csv"}')
+
+  # Avatar and gaze statistics.
+  keys = ['score', 'minutes', 'avatar_x_mean', 'avatar_x_sd', 'lane_changes_per_min', 'avatar_x_speed',
+          'gaze_entropy', 'gaze_switches_per_s', 'gaze_dwell_ms', 'gaze_avatar_same_square',
+          'gaze_avatar_near', 'gaze_avatar_dist_px']
+  groups = [(f'human_{p.stem.replace("play_stats_", "")}', read_csv(p))
+            for p in sorted((res / 'human').glob('play_stats_*.csv'))]
+  play_paths = sorted((res / 'agent').glob('*play_stats*.csv'))
+  groups += [(f'agent_{p.stem.replace("_play_stats", "")}', read_csv(p)) for p in play_paths]
+  if play_paths:
+    groups.append(('agent_all_seeds', [r for p in play_paths for r in read_csv(p)]))
+  with open(res / 'play_comparison.csv', 'w', newline='') as f:
+    writer = csv.writer(f)
+    lanes = [k for k in groups[0][1][0] if k.startswith('lane/')]
+    drow = [k for k in groups[0][1][0] if k.startswith('gaze_avatar_drow/')]
+    header = ['group', 'n'] + [f'{k}_{s}' for k in keys for s in ('mean', 'sd')] + lanes + drow
+    writer.writerow(header)
+    for name, rows in groups:
+      line = [name, len(rows)]
+      for k in keys:
+        v = column(rows, k)
+        line += [f'{v.mean():.4f}', f'{v.std():.4f}']
+      line += [f'{column(rows, k).mean():.4f}' for k in lanes + drow]
+      writer.writerow(line)
+  print(f'Wrote {res / "play_comparison.csv"}')
 
   # Heatmaps.
   import matplotlib
@@ -134,7 +159,8 @@ def main():
   seeds = sorted(glob.glob(str(res / 'agent' / '*play_stats*.csv')))
   for path in seeds:
     shares, n = grid_mean([path])
-    maps.append((f'Agent {pathlib.Path(path).stem}\n({n} episodes)', grid_image(shares, grid), shares))
+    name = pathlib.Path(path).stem.split('_')
+    maps.append((f'Agent {name[0]}, step {int(name[1][4:]) / 1e6:.1f}M\n({n} episodes)', grid_image(shares, grid), shares))
   if len(seeds) > 1:
     shares, n = grid_mean(seeds)
     maps.append((f'Agent, all seeds\n({n} episodes)', grid_image(shares, grid), shares))
@@ -150,20 +176,23 @@ def main():
 
   fig, axes = plt.subplots(1, len(maps), figsize=(3.2 * len(maps), 5.0), squeeze=False)
   extent = (0, object_gaze.SCREEN[0], object_gaze.SCREEN[1], 0)
+  # All grid maps share one colour scale; the pixel map has its own.
+  vmax = max(shares.max() for _, _, shares in maps if shares is not None)
   for ax, (title, image, shares) in zip(axes[0], maps):
-    ax.imshow(image, cmap='Blues', extent=extent, interpolation='nearest', vmin=0)
+    ax.imshow(image, cmap='Blues', extent=extent, interpolation='nearest', vmin=0,
+              vmax=vmax if shares is not None else None)
     ax.axhspan(*objects.GAMES['asterix'].playfield, fill=False, ec='0.5', ls='--', lw=0.8)
     if shares is not None:
       cols, rows = grid.count
       sq = np.array(grid.squares(), float)
       centres = sq[:, :2] + sq[:, 2:] / 2
       for k, v in enumerate(shares):
-        ink = 'white' if v > 0.6 * shares.max() else '0.15'
+        ink = 'white' if v > 0.6 * vmax else '0.15'
         ax.text(*centres[k], f'{100 * v:.0f}', ha='center', va='center', fontsize=7, color=ink)
     ax.set_title(title, fontsize=9)
     ax.set_xticks([])
     ax.set_yticks([])
-  fig.suptitle('Gaze time per location\nNumbers: % of time per grid square; dashed: playfield',
+  fig.suptitle('Gaze time per location\nNumbers: % of time per grid square; grid maps share one colour scale; dashed: playfield',
                fontsize=9)
   fig.tight_layout(rect=(0, 0, 1, 0.94))
   fig.savefig(res / 'gaze_heatmaps.png', dpi=150)

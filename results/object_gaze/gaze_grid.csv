@@ -24,3 +24,103 @@ map,square,row,col,share
 "Human, grid (15 trials, max_frames_5000)",22,4,2,0.02477
 "Human, grid (15 trials, max_frames_5000)",23,4,3,0.00423
 "Human, grid (15 trials, max_frames_5000)",24,4,4,0.00059
+"Agent seed0, step 32.9M (30 episodes)",0,0,0,0.01379
+"Agent seed0, step 32.9M (30 episodes)",1,0,1,0.02450
+"Agent seed0, step 32.9M (30 episodes)",2,0,2,0.01324
+"Agent seed0, step 32.9M (30 episodes)",3,0,3,0.04434
+"Agent seed0, step 32.9M (30 episodes)",4,0,4,0.03862
+"Agent seed0, step 32.9M (30 episodes)",5,1,0,0.01558
+"Agent seed0, step 32.9M (30 episodes)",6,1,1,0.06900
+"Agent seed0, step 32.9M (30 episodes)",7,1,2,0.04309
+"Agent seed0, step 32.9M (30 episodes)",8,1,3,0.14194
+"Agent seed0, step 32.9M (30 episodes)",9,1,4,0.03491
+"Agent seed0, step 32.9M (30 episodes)",10,2,0,0.08210
+"Agent seed0, step 32.9M (30 episodes)",11,2,1,0.02770
+"Agent seed0, step 32.9M (30 episodes)",12,2,2,0.02309
+"Agent seed0, step 32.9M (30 episodes)",13,2,3,0.04432
+"Agent seed0, step 32.9M (30 episodes)",14,2,4,0.01465
+"Agent seed0, step 32.9M (30 episodes)",15,3,0,0.05848
+"Agent seed0, step 32.9M (30 episodes)",16,3,1,0.07667
+"Agent seed0, step 32.9M (30 episodes)",17,3,2,0.10486
+"Agent seed0, step 32.9M (30 episodes)",18,3,3,0.01043
+"Agent seed0, step 32.9M (30 episodes)",19,3,4,0.03075
+"Agent seed0, step 32.9M (30 episodes)",20,4,0,0.02704
+"Agent seed0, step 32.9M (30 episodes)",21,4,1,0.01121
+"Agent seed0, step 32.9M (30 episodes)",22,4,2,0.01447
+"Agent seed0, step 32.9M (30 episodes)",23,4,3,0.00949
+"Agent seed0, step 32.9M (30 episodes)",24,4,4,0.02576
+"Agent seed1, step 38.7M (30 episodes)",0,0,0,0.03879
+"Agent seed1, step 38.7M (30 episodes)",1,0,1,0.03819
+"Agent seed1, step 38.7M (30 episodes)",2,0,2,0.02891
+"Agent seed1, step 38.7M (30 episodes)",3,0,3,0.01219
+"Agent seed1, step 38.7M (30 episodes)",4,0,4,0.01846
+"Agent seed1, step 38.7M (30 episodes)",5,1,0,0.02854
+"Agent seed1, step 38.7M (30 episodes)",6,1,1,0.19005
+"Agent seed1, step 38.7M (30 episodes)",7,1,2,0.02129
+"Agent seed1, step 38.7M (30 episodes)",8,1,3,0.03014
+"Agent seed1, step 38.7M (30 episodes)",9,1,4,0.02696
+"Agent seed1, step 38.7M (30 episodes)",10,2,0,0.02094
+"Agent seed1, step 38.7M (30 episodes)",11,2,1,0.06230
+"Agent seed1, step 38.7M (30 episodes)",12,2,2,0.01484
+"Agent seed1, step 38.7M (30 episodes)",13,2,3,0.02360
+"Agent seed1, step 38.7M (30 episodes)",14,2,4,0.03302
+"Agent seed1, step 38.7M (30 episodes)",15,3,0,0.00312
+"Agent seed1, step 38.7M (30 episodes)",16,3,1,0.01923
+"Agent seed1, step 38.7M (30 episodes)",17,3,2,0.05741
+"Agent seed1, step 38.7M (30 episodes)",18,3,3,0.16881
+"Agent seed1, step 38.7M (30 episodes)",19,3,4,0.04790
+"Agent seed1, step 38.7M (30 episodes)",20,4,0,0.00751
+"Agent seed1, step 38.7M (30 episodes)",21,4,1,0.03759
+"Agent seed1, step 38.7M (30 episodes)",22,4,2,0.02006
+"Agent seed1, step 38.7M (30 episodes)",23,4,3,0.03927
+"Agent seed1, step 38.7M (30 episodes)",24,4,4,0.01089
+"Agent seed2, step 27.6M (29 episodes)",0,0,0,0.01147
+"Agent seed2, step 27.6M (29 episodes)",1,0,1,0.01957
+"Agent seed2, step 27.6M (29 episodes)",2,0,2,0.03909
+"Agent seed2, step 27.6M (29 episodes)",3,0,3,0.02321
+"Agent seed2, step 27.6M (29 episodes)",4,0,4,0.02416
+"Agent seed2, step 27.6M (29 episodes)",5,1,0,0.07599
+"Agent seed2, step 27.6M (29 episodes)",6,1,1,0.12010
+"Agent seed2, step 27.6M (29 episodes)",7,1,2,0.04308
+"Agent seed2, step 27.6M (29 episodes)",8,1,3,0.02174
+"Agent seed2, step 27.6M (29 episodes)",9,1,4,0.01630
+"Agent seed2, step 27.6M (29 episodes)",10,2,0,0.01269
+"Agent seed2, step 27.6M (29 episodes)",11,2,1,0.04002
+"Agent seed2, step 27.6M (29 episodes)",12,2,2,0.11151
+"Agent seed2, step 27.6M (29 episodes)",13,2,3,0.11610
+"Agent seed2, step 27.6M (29 episodes)",14,2,4,0.00608
+"Agent seed2, step 27.6M (29 episodes)",15,3,0,0.00696
+"Agent seed2, step 27.6M (29 episodes)",16,3,1,0.02430
+"Agent seed2, step 27.6M (29 episodes)",17,3,2,0.00998
+"Agent seed2, step 27.6M (29 episodes)",18,3,3,0.05592
+"Agent seed2, step 27.6M (29 episodes)",19,3,4,0.07169
+"Agent seed2, step 27.6M (29 episodes)",20,4,0,0.01295
+"Agent seed2, step 27.6M (29 episodes)",21,4,1,0.07668
+"Agent seed2, step 27.6M (29 episodes)",22,4,2,0.04051
+"Agent seed2, step 27.6M (29 episodes)",23,4,3,0.01434
+"Agent seed2, step 27.6M (29 episodes)",24,4,4,0.00558
+"Agent, all seeds (89 episodes)",0,0,0,0.02146
+"Agent, all seeds (89 episodes)",1,0,1,0.02751
+"Agent, all seeds (89 episodes)",2,0,2,0.02694
+"Agent, all seeds (89 episodes)",3,0,3,0.02662
+"Agent, all seeds (89 episodes)",4,0,4,0.02711
+"Agent, all seeds (89 episodes)",5,1,0,0.03963
+"Agent, all seeds (89 episodes)",6,1,1,0.12645
+"Agent, all seeds (89 episodes)",7,1,2,0.03574
+"Agent, all seeds (89 episodes)",8,1,3,0.06509
+"Agent, all seeds (89 episodes)",9,1,4,0.02616
+"Agent, all seeds (89 episodes)",10,2,0,0.03887
+"Agent, all seeds (89 episodes)",11,2,1,0.04338
+"Agent, all seeds (89 episodes)",12,2,2,0.04912
+"Agent, all seeds (89 episodes)",13,2,3,0.06072
+"Agent, all seeds (89 episodes)",14,2,4,0.01805
+"Agent, all seeds (89 episodes)",15,3,0,0.02303
+"Agent, all seeds (89 episodes)",16,3,1,0.04024
+"Agent, all seeds (89 episodes)",17,3,2,0.05795
+"Agent, all seeds (89 episodes)",18,3,3,0.07864
+"Agent, all seeds (89 episodes)",19,3,4,0.04987
+"Agent, all seeds (89 episodes)",20,4,0,0.01586
+"Agent, all seeds (89 episodes)",21,4,1,0.04143
+"Agent, all seeds (89 episodes)",22,4,2,0.02484
+"Agent, all seeds (89 episodes)",23,4,3,0.02111
+"Agent, all seeds (89 episodes)",24,4,4,0.01417
