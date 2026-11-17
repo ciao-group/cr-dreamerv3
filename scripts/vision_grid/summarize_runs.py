@@ -7,7 +7,9 @@ one small table per run. Only uses the standard library.
   python scripts/vision_grid/summarize_runs.py \
       /sc/projects/sci-ebel/chair/Martin/CR-Atari_Logs/asterix/vision_grid/grid5x5_square24x24_EMMA_foveated_effort*/seed0
 
-Columns per bin (means over the episodes that ended in the bin):
+Columns per bin (episode columns: means over the episodes that ended in the
+bin; eff/st, sac/st and the shares: over the epstats rows of the bin, which
+the logger writes every log interval as separate rows):
   step     upper end of the bin in millions of steps
   eps      episodes
   game     game score (without penalties)
@@ -36,7 +38,10 @@ def read_metrics(path, max_step):
         row = json.loads(line)
       except json.JSONDecodeError:
         continue
-      if 'episode/length' not in row:
+      # Episode results and the epstats aggregates (written every log
+      # interval) arrive in separate rows; keep both.
+      if 'episode/length' not in row and not any(
+          k.startswith('epstats/') for k in row):
         continue
       if max_step and row.get('step', 0) > max_step:
         break
@@ -75,21 +80,22 @@ def summarize(rows, bin_size):
                 c[:2].rjust(4) for c in CATEGORIES))
   lines.append(header)
   for index in sorted(bins):
-    group = bins[index]
+    stats = [r for r in bins[index] if any(k.startswith('epstats/') for k in r)]
+    group = [r for r in bins[index] if 'episode/length' in r]
     lengths = [r.get('episode/length') for r in group]
     scores = [r.get('episode/score') for r in group]
     per_step = [s / l for s, l in zip(scores, lengths)
                 if s is not None and l]
-    looked = [ratio(group, f'epstats/log/looked_at/{c}/sum',
+    looked = [ratio(stats, f'epstats/log/looked_at/{c}/sum',
                     'epstats/log/frames/sum') for c in CATEGORIES]
-    chance = [ratio(group, f'epstats/log/chance/{c}/sum',
+    chance = [ratio(stats, f'epstats/log/chance/{c}/sum',
                     'epstats/log/frames/sum') for c in CATEGORIES]
     lines.append(
         f'{index * bin_size / 1e6:5.1f} {len(group):4d} '
         f"{fmt(mean([r.get('episode/game_score') for r in group]), 7, 0)} "
         f'{fmt(mean(per_step), 6, 2)} {fmt(mean(lengths), 6, 0)} '
-        f"{fmt(mean([r.get('epstats/log/effort_penalty/avg') for r in group]), 6, 3)} "
-        f"{fmt(mean([r.get('epstats/log/saccade_penalty/avg') for r in group]), 6, 3)}  "
+        f"{fmt(mean([r.get('epstats/log/effort_penalty/avg') for r in stats]), 6, 3)} "
+        f"{fmt(mean([r.get('epstats/log/saccade_penalty/avg') for r in stats]), 6, 3)}  "
         + ' '.join(fmt(v, 4, 0) for v in looked)
         + '  chance ' + ' '.join(fmt(v, 3, 0) for v in chance))
   return lines
